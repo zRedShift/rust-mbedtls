@@ -38,3 +38,5 @@ legacy_protocols = []
 mpi_force_c_code = []
 trusted_cert_callback = []
 
+[[package.metadata.esp-idf-sys.extra_components]]
+bindings_header = "src/wrapper.h"
