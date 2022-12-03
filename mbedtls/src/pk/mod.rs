@@ -305,10 +305,10 @@ impl Pk {
         Ok(ret)
     }
 
-    pub fn private_from_ec_components(mut curve: EcGroup, private_key: Mpi) -> Result<Pk> {
+    pub fn private_from_ec_components<F: Random>(rng: &mut F, mut curve: EcGroup, private_key: Mpi) -> Result<Pk> {
         let mut ret = Self::init();
         let curve_generator = curve.generator()?;
-        let public_point = curve_generator.mul(&mut curve, &private_key)?;
+        let public_point = curve_generator.mul(rng, &mut curve, &private_key)?;
         unsafe {
             pk_setup(&mut ret.inner, pk_info_from_type(Type::Eckey.into())).into_result()?;
             let ctx = ret.inner.private_pk_ctx as *mut ecp_keypair;

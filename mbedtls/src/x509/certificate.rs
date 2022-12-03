@@ -396,6 +396,13 @@ impl<'a> Builder<'a> {
         self
     }
 
+    pub fn subject_and_issuer_key(&mut self, key: &'a mut Pk) -> &mut Self {
+        let key = key.into();
+        unsafe { x509write_crt_set_subject_key(&mut self.inner, key) };
+        unsafe { x509write_crt_set_issuer_key(&mut self.inner, key) };
+        self
+    }
+
     pub fn signature_hash(&mut self, md: MdType) -> &mut Self {
         unsafe { x509write_crt_set_md_alg(&mut self.inner, md.into()) };
         self

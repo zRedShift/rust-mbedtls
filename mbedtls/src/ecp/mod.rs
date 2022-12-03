@@ -15,6 +15,7 @@ use crate::alloc_prelude::*;
 
 use crate::bignum::Mpi;
 use crate::pk::EcGroupId;
+use crate::rng::Random;
 
 define!(
     #[c_ty(ecp_group)]
@@ -325,8 +326,7 @@ impl EcPoint {
         }
     }
 
-    pub fn mul(&self, group: &mut EcGroup, k: &Mpi) -> Result<EcPoint> {
-        // TODO provide random number generator for blinding
+    pub fn mul<F: Random>(&self, rng: &mut F, group: &mut EcGroup, k: &Mpi) -> Result<EcPoint> {
         // Note: mbedtls_ecp_mul performs point validation itself so we skip that here
 
         let mut ret = Self::init();
@@ -337,8 +337,8 @@ impl EcPoint {
                 &mut ret.inner,
                 k.handle(),
                 &self.inner,
-                None,
-                ::core::ptr::null_mut(),
+                Some(F::call),
+                rng.data_ptr(),
             )
         }
         .into_result()?;
