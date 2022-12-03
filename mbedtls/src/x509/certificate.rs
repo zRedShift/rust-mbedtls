@@ -10,7 +10,7 @@ use core::fmt;
 use core::iter::FromIterator;
 use core::ptr::NonNull;
 
-use mbedtls_sys::types::raw_types::{c_char, c_void};
+use mbedtls_sys::types::raw_types::{c_char, c_int, c_void};
 use mbedtls_sys::*;
 
 use crate::alloc::{Box as MbedtlsBox, List as MbedtlsList};
@@ -28,12 +28,15 @@ use yasna::{
     models::ObjectIdentifier, ASN1Error, ASN1ErrorKind, ASN1Result, BERDecodable, BERReader,
 };
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum CertificateVersion {
-    V1,
-    V2,
-    V3,
-}
+define!(
+    #[c_ty(c_int)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    enum CertificateVersion {
+        V1 = X509_CRT_VERSION_1,
+        V2 = X509_CRT_VERSION_2,
+        V3 = X509_CRT_VERSION_3,
+    }
+);
 
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -401,6 +404,11 @@ impl<'a> Builder<'a> {
     pub fn key_usage(&mut self, usage: crate::x509::KeyUsage) -> Result<&mut Self> {
         unsafe { x509write_crt_set_key_usage(&mut self.inner, usage.bits()) }.into_result()?;
         Ok(self)
+    }
+
+    pub fn version(&mut self, version: CertificateVersion) -> &mut Self {
+        unsafe { x509write_crt_set_version(&mut self.inner, version.into()) };
+        self
     }
 
     pub fn extension(&mut self, oid: &[u8], val: &[u8], critical: bool) -> Result<&mut Self> {
