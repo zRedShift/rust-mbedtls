@@ -14,8 +14,8 @@ define!(
     #[derive(Copy, Clone, PartialEq, Debug)]
     enum Type {
         None = MD_NONE,
-        Md2 = MD_MD2,
-        Md4 = MD_MD4,
+        // Md2 = MD_MD2,
+        // Md4 = MD_MD4,
         Md5 = MD_MD5,
         Sha1 = MD_SHA1,
         Sha224 = MD_SHA224,
@@ -30,8 +30,8 @@ impl From<md_type_t> for Type {
     fn from(inner: md_type_t) -> Type {
         match inner {
             MD_NONE => Type::None,
-            MD_MD2 => Type::Md2,
-            MD_MD4 => Type::Md4,
+            // MD_MD2 => Type::Md2,
+            // MD_MD4 => Type::Md4,
             MD_MD5 => Type::Md5,
             MD_SHA1 => Type::Sha1,
             MD_SHA224 => Type::Sha224,
@@ -94,13 +94,13 @@ impl Md {
     }
 
     pub fn update(&mut self, data: &[u8]) -> Result<()> {
-        unsafe { md_update(&mut self.inner, data.as_ptr(), data.len()) }.into_result()?;
+        unsafe { md_update(&mut self.inner, data.as_ptr(), data.len() as _) }.into_result()?;
         Ok(())
     }
 
     pub fn finish(mut self, out: &mut [u8]) -> Result<usize> {
         unsafe {
-            let olen = (*self.inner.md_info).size as usize;
+            let olen = md_get_size(self.inner.private_md_info) as usize;
             if out.len() < olen {
                 return Err(Error::MdBadInputData);
             }
@@ -116,11 +116,17 @@ impl Md {
         };
 
         unsafe {
-            let olen = mdinfo.inner.size as usize;
+            let olen = md_get_size(mdinfo.inner) as usize;
             if out.len() < olen {
                 return Err(Error::MdBadInputData);
             }
-            md(mdinfo.inner, data.as_ptr(), data.len(), out.as_mut_ptr()).into_result()?;
+            md(
+                mdinfo.inner,
+                data.as_ptr(),
+                data.len() as _,
+                out.as_mut_ptr(),
+            )
+            .into_result()?;
             Ok(olen)
         }
     }
@@ -140,19 +146,20 @@ impl Hmac {
         let mut ctx = Md::init();
         unsafe {
             md_setup(&mut ctx.inner, md.into(), 1).into_result()?;
-            md_hmac_starts(&mut ctx.inner, key.as_ptr(), key.len()).into_result()?;
+            md_hmac_starts(&mut ctx.inner, key.as_ptr(), key.len() as _).into_result()?;
         }
         Ok(Hmac { ctx })
     }
 
     pub fn update(&mut self, data: &[u8]) -> Result<()> {
-        unsafe { md_hmac_update(&mut self.ctx.inner, data.as_ptr(), data.len()) }.into_result()?;
+        unsafe { md_hmac_update(&mut self.ctx.inner, data.as_ptr(), data.len() as _) }
+            .into_result()?;
         Ok(())
     }
 
     pub fn finish(mut self, out: &mut [u8]) -> Result<usize> {
         unsafe {
-            let olen = (*self.ctx.inner.md_info).size as usize;
+            let olen = md_get_size(self.ctx.inner.private_md_info) as usize;
             if out.len() < olen {
                 return Err(Error::MdBadInputData);
             }
@@ -168,16 +175,16 @@ impl Hmac {
         };
 
         unsafe {
-            let olen = md.inner.size as usize;
+            let olen = md_get_size(md.inner) as usize;
             if out.len() < olen {
                 return Err(Error::MdBadInputData);
             }
             md_hmac(
                 md.inner,
                 key.as_ptr(),
-                key.len(),
+                key.len() as _,
                 data.as_ptr(),
-                data.len(),
+                data.len() as _,
                 out.as_mut_ptr(),
             )
             .into_result()?;
@@ -201,13 +208,13 @@ impl Hkdf {
             hkdf(
                 md.inner,
                 salt.as_ptr(),
-                salt.len(),
+                salt.len() as _,
                 ikm.as_ptr(),
-                ikm.len(),
+                ikm.len() as _,
                 info.as_ptr(),
-                info.len(),
+                info.len() as _,
                 key.as_mut_ptr(),
-                key.len(),
+                key.len() as _,
             )
             .into_result()?;
             Ok(())
@@ -218,7 +225,7 @@ impl Hkdf {
 impl Clone for Md {
     fn clone(&self) -> Self {
         fn copy_md(md: &Md) -> Result<Md> {
-            let md_type = unsafe { md_get_type(md.inner.md_info) };
+            let md_type = unsafe { md_get_type(md.inner.private_md_info) };
             let mut m = Md::new(md_type.into())?;
             unsafe { md_clone(&mut m.inner, &md.inner) }.into_result()?;
             Ok(m)
@@ -245,9 +252,9 @@ pub fn pbkdf2_hmac(
         pkcs5_pbkdf2_hmac(
             (&mut ctx).into(),
             password.as_ptr(),
-            password.len(),
+            password.len() as _,
             salt.as_ptr(),
-            salt.len(),
+            salt.len() as _,
             iterations,
             key.len() as u32,
             key.as_mut_ptr(),
@@ -268,11 +275,11 @@ pub fn pbkdf_pkcs12(
     unsafe {
         pkcs12_derivation(
             key.as_mut_ptr(),
-            key.len(),
+            key.len() as _,
             password.as_ptr(),
-            password.len(),
+            password.len() as _,
             salt.as_ptr(),
-            salt.len(),
+            salt.len() as _,
             md.into(),
             id as i32,
             iterations as i32,

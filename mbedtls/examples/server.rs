@@ -37,9 +37,13 @@ fn listen<E, F: FnMut(TcpStream) -> Result<(), E>>(mut handle_client: F) -> Resu
 
 fn result_main() -> TlsResult<()> {
     let entropy = entropy_new();
-    let rng = Arc::new(CtrDrbg::new(Arc::new(entropy), None)?);
+    let mut rng = Arc::new(CtrDrbg::new(Arc::new(entropy), None)?);
     let cert = Arc::new(Certificate::from_pem_multiple(keys::PEM_CERT.as_bytes())?);
-    let key = Arc::new(Pk::from_private_key(keys::PEM_KEY.as_bytes(), None)?);
+    let key = Arc::new(Pk::from_private_key(
+        &mut rng,
+        keys::PEM_KEY.as_bytes(),
+        None,
+    )?);
     let mut config = Config::new(Endpoint::Server, Transport::Stream, Preset::Default);
     config.set_rng(rng);
     config.push_cert(cert, key)?;

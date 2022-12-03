@@ -10,14 +10,14 @@
 use crate::alloc_prelude::*;
 use mbedtls_sys::*;
 
-use mbedtls_sys::types::raw_types::c_void;
+// use mbedtls_sys::types::raw_types::c_void;
 
-use core::ptr;
-use core::convert::TryInto;
 use crate::error::{Error, IntoResult, Result};
+use crate::hash::Type as MdType;
 use crate::private::UnsafeFrom;
 use crate::rng::Random;
-use crate::hash::Type as MdType;
+use core::convert::TryInto;
+use core::ptr;
 
 use byteorder::{BigEndian, ByteOrder};
 
@@ -39,11 +39,12 @@ pub use self::ec::{EcGroupId, ECDSA_MAX_LEN};
 pub use crate::ecp::EcGroup;
 
 pub use dhparam::Dhm;
+use mbedtls_sys::sys::size_t;
 
 // SHA-256("Fortanix")[:4]
 const CUSTOM_PK_TYPE: pk_type_t = 0x8b205408 as pk_type_t;
 
-const RAW_RSA_DECRYPT : i32 = 1040451858;
+const RAW_RSA_DECRYPT: i32 = 1040451858;
 
 define!(
     #[c_ty(pk_type_t)]
@@ -91,51 +92,51 @@ pub enum Options {
     Rsa { padding: RsaPadding },
 }
 
-struct CustomPkContext {
-    pub algo_id: Vec<u64>,
-    pub pk: Vec<u8>,
-    pub sk: Vec<u8>,
-}
+// struct CustomPkContext {
+//     pub algo_id: Vec<u64>,
+//     pub pk: Vec<u8>,
+//     pub sk: Vec<u8>,
+// }
 
-impl CustomPkContext {
-    fn new() -> CustomPkContext {
-        CustomPkContext {
-            algo_id: Vec::new(),
-            pk: Vec::new(),
-            sk: Vec::new(),
-        }
-    }
-}
+// impl CustomPkContext {
+//     fn new() -> CustomPkContext {
+//         CustomPkContext {
+//             algo_id: Vec::new(),
+//             pk: Vec::new(),
+//             sk: Vec::new(),
+//         }
+//     }
+// }
+//
+// extern "C" fn alloc_custom_pk_ctx() -> *mut c_void {
+//     let boxed = Box::new(CustomPkContext::new());
+//     Box::into_raw(boxed) as *mut c_void
+// }
+//
+// unsafe extern "C" fn free_custom_pk_ctx(p: *mut c_void) {
+//     let _ = Box::from_raw(p as *mut CustomPkContext);
+// }
+//
+// extern "C" fn custom_pk_can_do(_t: u32) -> i32 {
+//     0
+// }
 
-extern "C" fn alloc_custom_pk_ctx() -> *mut c_void {
-    let boxed = Box::new(CustomPkContext::new());
-    Box::into_raw(boxed) as *mut c_void
-}
-
-unsafe extern "C" fn free_custom_pk_ctx(p: *mut c_void) {
-    let _ = Box::from_raw(p as *mut CustomPkContext);
-}
-
-extern "C" fn custom_pk_can_do(_t: u32) -> i32 {
-    0
-}
-
-const CUSTOM_PK_INFO: pk_info_t = {
-    pk_info_t {
-        type_: CUSTOM_PK_TYPE,
-        can_do: Some(custom_pk_can_do),
-        check_pair_func: None,
-        debug_func: None,
-        encrypt_func: None,
-        decrypt_func: None,
-        sign_func: None,
-        verify_func: None,
-        get_bitlen: None,
-        name: b"\0" as *const u8 as *const _,
-        ctx_alloc_func: Some(alloc_custom_pk_ctx),
-        ctx_free_func: Some(free_custom_pk_ctx),
-    }
-};
+// const CUSTOM_PK_INFO: pk_info_t = {
+//     pk_info_t {
+//         type_: CUSTOM_PK_TYPE,
+//         can_do: Some(custom_pk_can_do),
+//         check_pair_func: None,
+//         debug_func: None,
+//         encrypt_func: None,
+//         decrypt_func: None,
+//         sign_func: None,
+//         verify_func: None,
+//         get_bitlen: None,
+//         name: b"\0" as *const u8 as *const _,
+//         ctx_alloc_func: Some(alloc_custom_pk_ctx),
+//         ctx_free_func: Some(free_custom_pk_ctx),
+//     }
+// };
 
 // If this changes then certificate.rs unsafe code in public_key needs to also change.
 define!(
@@ -163,7 +164,7 @@ define!(
 // B. Verifying thread safety.
 //
 // 1. Calls towards the specific Pk implementation are done via function pointers.
-// 
+//
 // - Example call towards Pk:
 //    ../../../mbedtls-sys/vendor/library/ssl_srv.c:3707 - mbedtls_pk_decrypt( private_key, p, len, ...
 // - This calls a generic function pointer via:
@@ -174,7 +175,7 @@ define!(
 // - The function pointers are defined via function:
 //      ../../../mbedtls-sys/vendor/crypto/library/pk.c:115 - mbedtls_pk_info_from_type
 // - They are as follows: mbedtls_rsa_info / mbedtls_eckey_info / mbedtls_ecdsa_info
-// - These are defined in: 
+// - These are defined in:
 //       ../../../mbedtls-sys/vendor/crypto/library/pk_wrap.c:196
 //
 // C. Checking types one by one.
@@ -222,7 +223,7 @@ define!(
 //                    mbedtls_ecp_mul_restartable: ../../../mbedtls-sys/vendor/crypto/library/ecp.c:2351
 //                        MBEDTLS_ECP_INTERNAL_ALT is not defined. (otherwise it might not be safe depending on ecp_init/ecp_free) ../../../mbedtls-sys/build/config.rs:131
 //                        Passes as const to: mbedtls_ecp_check_privkey / mbedtls_ecp_check_pubkey / mbedtls_ecp_get_type( grp
-//        
+//
 // - Ignored due to not defined: ecdsa_verify_rs_wrap, ecdsa_sign_rs_wrap, ecdsa_rs_alloc, ecdsa_rs_free
 //   (Undefined - MBEDTLS_ECP_RESTARTABLE - ../../../mbedtls-sys/build/config.rs:173)
 //
@@ -236,15 +237,21 @@ impl Pk {
     /// Takes both DER and PEM forms of PKCS#1 or PKCS#8 encoded keys.
     ///
     /// When calling on PEM-encoded data, `key` must be NULL-terminated
-    pub fn from_private_key(key: &[u8], password: Option<&[u8]>) -> Result<Pk> {
+    pub fn from_private_key<F: Random>(
+        rng: &mut F,
+        key: &[u8],
+        password: Option<&[u8]>,
+    ) -> Result<Pk> {
         let mut ret = Self::init();
         unsafe {
             pk_parse_key(
                 &mut ret.inner,
                 key.as_ptr(),
-                key.len(),
+                key.len() as _,
                 password.map(<[_]>::as_ptr).unwrap_or(::core::ptr::null()),
-                password.map(<[_]>::len).unwrap_or(0),
+                password.map(<[_]>::len).unwrap_or(0) as _,
+                Some(F::call),
+                rng.data_ptr(),
             )
             .into_result()?;
         };
@@ -256,7 +263,7 @@ impl Pk {
     /// When calling on PEM-encoded data, `key` must be NULL-terminated
     pub fn from_public_key(key: &[u8]) -> Result<Pk> {
         let mut ret = Self::init();
-        unsafe { pk_parse_public_key(&mut ret.inner, key.as_ptr(), key.len()).into_result()? };
+        unsafe { pk_parse_public_key(&mut ret.inner, key.as_ptr(), key.len() as _).into_result()? };
         Ok(ret)
     }
 
@@ -265,7 +272,7 @@ impl Pk {
         unsafe {
             pk_setup(&mut ret.inner, pk_info_from_type(Type::Rsa.into())).into_result()?;
             rsa_gen_key(
-                ret.inner.pk_ctx as *mut _,
+                ret.inner.private_pk_ctx as *mut _,
                 Some(F::call),
                 rng.data_ptr(),
                 bits,
@@ -276,17 +283,20 @@ impl Pk {
         Ok(ret)
     }
 
-    pub fn generate_ec<F: Random, C: TryInto<EcGroup, Error = impl Into<Error>>>(rng: &mut F, curve: C) -> Result<Pk> {
+    pub fn generate_ec<F: Random, C: TryInto<EcGroup, Error = impl Into<Error>>>(
+        rng: &mut F,
+        curve: C,
+    ) -> Result<Pk> {
         let mut ret = Self::init();
         unsafe {
-            let curve : EcGroup = curve.try_into().map_err(|e| e.into())?;
+            let curve: EcGroup = curve.try_into().map_err(|e| e.into())?;
             pk_setup(&mut ret.inner, pk_info_from_type(Type::Eckey.into())).into_result()?;
-            let ctx = ret.inner.pk_ctx as *mut ecp_keypair;
-            (*ctx).grp = curve.clone().into_inner();
+            let ctx = ret.inner.private_pk_ctx as *mut ecp_keypair;
+            (*ctx).private_grp = curve.clone().into_inner();
             ecp_gen_keypair(
-                &mut (*ctx).grp,
-                &mut (*ctx).d,
-                &mut (*ctx).Q,
+                &mut (*ctx).private_grp,
+                &mut (*ctx).private_d,
+                &mut (*ctx).private_Q,
                 Some(F::call),
                 rng.data_ptr(),
             )
@@ -301,10 +311,10 @@ impl Pk {
         let public_point = curve_generator.mul(&mut curve, &private_key)?;
         unsafe {
             pk_setup(&mut ret.inner, pk_info_from_type(Type::Eckey.into())).into_result()?;
-            let ctx = ret.inner.pk_ctx as *mut ecp_keypair;
-            (*ctx).grp = curve.into_inner();
-            (*ctx).d = private_key.into_inner();
-            (*ctx).Q = public_point.into_inner();
+            let ctx = ret.inner.private_pk_ctx as *mut ecp_keypair;
+            (*ctx).private_grp = curve.into_inner();
+            (*ctx).private_d = private_key.into_inner();
+            (*ctx).private_Q = public_point.into_inner();
         }
         Ok(ret)
     }
@@ -313,69 +323,69 @@ impl Pk {
         let mut ret = Self::init();
         unsafe {
             pk_setup(&mut ret.inner, pk_info_from_type(Type::Eckey.into())).into_result()?;
-            let ctx = ret.inner.pk_ctx as *mut ecp_keypair;
-            (*ctx).grp = curve.into_inner();
-            (*ctx).Q = public_point.into_inner();
+            let ctx = ret.inner.private_pk_ctx as *mut ecp_keypair;
+            (*ctx).private_grp = curve.into_inner();
+            (*ctx).private_Q = public_point.into_inner();
         }
         Ok(ret)
     }
 
-    pub fn public_custom_algo(algo_id: &[u64], pk: &[u8]) -> Result<Pk> {
-        let mut ret = Self::init();
-        unsafe {
-            pk_setup(&mut ret.inner, &CUSTOM_PK_INFO).into_result()?;
-            let ctx = ret.inner.pk_ctx as *mut CustomPkContext;
-            (*ctx).algo_id = algo_id.to_owned();
-            (*ctx).pk = pk.to_owned();
-        }
-        Ok(ret)
-    }
-
-    pub fn private_custom_algo(algo_id: &[u64], pk: &[u8], sk: &[u8]) -> Result<Pk> {
-        let mut ret = Self::init();
-        unsafe {
-            pk_setup(&mut ret.inner, &CUSTOM_PK_INFO).into_result()?;
-            let ctx = ret.inner.pk_ctx as *mut CustomPkContext;
-            (*ctx).algo_id = algo_id.to_owned();
-            (*ctx).pk = pk.to_owned();
-            (*ctx).sk = sk.to_owned();
-        }
-        Ok(ret)
-    }
-
-    pub fn custom_algo_id(&self) -> Result<&[u64]> {
-        if self.pk_type() != Type::Custom {
-            return Err(Error::PkInvalidAlg);
-        }
-
-        unsafe {
-            let ctx = self.inner.pk_ctx as *const CustomPkContext;
-            Ok(&(*ctx).algo_id)
-        }
-    }
-
-    pub fn custom_public_key(&self) -> Result<&[u8]> {
-        if self.pk_type() != Type::Custom {
-            return Err(Error::PkInvalidAlg);
-        }
-
-        let ctx = self.inner.pk_ctx as *const CustomPkContext;
-        unsafe { Ok(&(*ctx).pk) }
-    }
-
-    pub fn custom_private_key(&self) -> Result<&[u8]> {
-        if self.pk_type() != Type::Custom {
-            return Err(Error::PkInvalidAlg);
-        }
-
-        let ctx = self.inner.pk_ctx as *const CustomPkContext;
-        unsafe {
-            if (*ctx).sk.len() == 0 {
-                return Err(Error::PkTypeMismatch);
-            }
-            Ok(&(*ctx).sk)
-        }
-    }
+    // pub fn public_custom_algo(algo_id: &[u64], pk: &[u8]) -> Result<Pk> {
+    //     let mut ret = Self::init();
+    //     unsafe {
+    //         pk_setup(&mut ret.inner, &CUSTOM_PK_INFO).into_result()?;
+    //         let ctx = ret.inner.private_pk_ctx as *mut CustomPkContext;
+    //         (*ctx).algo_id = algo_id.to_owned();
+    //         (*ctx).pk = pk.to_owned();
+    //     }
+    //     Ok(ret)
+    // }
+    //
+    // pub fn private_custom_algo(algo_id: &[u64], pk: &[u8], sk: &[u8]) -> Result<Pk> {
+    //     let mut ret = Self::init();
+    //     unsafe {
+    //         pk_setup(&mut ret.inner, &CUSTOM_PK_INFO).into_result()?;
+    //         let ctx = ret.inner.private_pk_ctx as *mut CustomPkContext;
+    //         (*ctx).algo_id = algo_id.to_owned();
+    //         (*ctx).pk = pk.to_owned();
+    //         (*ctx).sk = sk.to_owned();
+    //     }
+    //     Ok(ret)
+    // }
+    //
+    // pub fn custom_algo_id(&self) -> Result<&[u64]> {
+    //     if self.pk_type() != Type::Custom {
+    //         return Err(Error::PkInvalidAlg);
+    //     }
+    //
+    //     unsafe {
+    //         let ctx = self.inner.private_pk_ctx as *const CustomPkContext;
+    //         Ok(&(*ctx).algo_id)
+    //     }
+    // }
+    //
+    // pub fn custom_public_key(&self) -> Result<&[u8]> {
+    //     if self.pk_type() != Type::Custom {
+    //         return Err(Error::PkInvalidAlg);
+    //     }
+    //
+    //     let ctx = self.inner.private_pk_ctx as *const CustomPkContext;
+    //     unsafe { Ok(&(*ctx).pk) }
+    // }
+    //
+    // pub fn custom_private_key(&self) -> Result<&[u8]> {
+    //     if self.pk_type() != Type::Custom {
+    //         return Err(Error::PkInvalidAlg);
+    //     }
+    //
+    //     let ctx = self.inner.private_pk_ctx as *const CustomPkContext;
+    //     unsafe {
+    //         if (*ctx).sk.len() == 0 {
+    //             return Err(Error::PkTypeMismatch);
+    //         }
+    //         Ok(&(*ctx).sk)
+    //     }
+    // }
 
     /// Panics if the options are not valid for this key type.
     pub fn set_options(&mut self, options: Options) {
@@ -387,12 +397,16 @@ impl Pk {
                         RsaPadding::Pkcs1V15 => (RSA_PKCS_V15, 0),
                         RsaPadding::Pkcs1V21 { mgf } => (RSA_PKCS_V21, mgf.into()),
                         RsaPadding::None => {
-                            let ctx = self.inner.pk_ctx as *mut rsa_context;
-                            (*ctx).padding = RAW_RSA_DECRYPT; // denotes RawDecrypt padding being set
+                            let ctx = self.inner.private_pk_ctx as *mut rsa_context;
+                            (*ctx).private_padding = RAW_RSA_DECRYPT; // denotes RawDecrypt padding being set
                             return;
                         }
                     };
-                    rsa_set_padding(self.inner.pk_ctx as *mut rsa_context, padding, hash_id as _);
+                    rsa_set_padding(
+                        self.inner.private_pk_ctx as *mut rsa_context,
+                        padding as _,
+                        hash_id as _,
+                    );
                 }
                 _ => panic!("Invalid options for this key type"),
             }
@@ -407,15 +421,15 @@ impl Pk {
         }
     }
 
-    pub fn check_pair(public: &Self, private: &Self) -> bool {
-        unsafe { pk_check_pair(&public.inner, &private.inner) }
+    pub fn check_pair<F: Random>(rng: &mut F, public: &Self, private: &Self) -> bool {
+        unsafe { pk_check_pair(&public.inner, &private.inner, Some(F::call), rng.data_ptr()) }
             .into_result()
             .is_ok()
     }
 
     getter!(
         /// Key length in bits
-        len() -> usize = fn pk_get_bitlen
+        len() -> size_t = fn pk_get_bitlen
     );
     getter!(pk_type() -> Type = fn pk_get_type);
 
@@ -425,7 +439,12 @@ impl Pk {
             _ => return Err(Error::PkTypeMismatch),
         }
 
-        unsafe { Ok((*(self.inner.pk_ctx as *const ecp_keypair)).grp.id.into()) }
+        unsafe {
+            Ok((*(self.inner.private_pk_ctx as *const ecp_keypair))
+                .private_grp
+                .id
+                .into())
+        }
     }
 
     pub fn curve_oid(&self) -> Result<Vec<u64>> {
@@ -455,13 +474,13 @@ impl Pk {
             EcGroupId::None => {
                 // custom curve, need to read params
                 unsafe {
-                    let ecp = self.inner.pk_ctx as *const ecp_keypair;
-                    let p = Mpi::copy(&(*ecp).grp.P)?;
-                    let a = Mpi::copy(&(*ecp).grp.A)?;
-                    let b = Mpi::copy(&(*ecp).grp.B)?;
-                    let n = Mpi::copy(&(*ecp).grp.N)?;
-                    let g_x = Mpi::copy(&(*ecp).grp.G.X)?;
-                    let g_y = Mpi::copy(&(*ecp).grp.G.Y)?;
+                    let ecp = self.inner.private_pk_ctx as *const ecp_keypair;
+                    let p = Mpi::copy(&(*ecp).private_grp.P)?;
+                    let a = Mpi::copy(&(*ecp).private_grp.A)?;
+                    let b = Mpi::copy(&(*ecp).private_grp.B)?;
+                    let n = Mpi::copy(&(*ecp).private_grp.N)?;
+                    let g_x = Mpi::copy(&(*ecp).private_grp.G.private_X)?;
+                    let g_y = Mpi::copy(&(*ecp).private_grp.G.private_Y)?;
                     EcGroup::from_parameters(p, a, b, g_x, g_y, n)
                 }
             }
@@ -476,7 +495,7 @@ impl Pk {
             _ => return Err(Error::PkTypeMismatch),
         }
 
-        let q = &unsafe { (*(self.inner.pk_ctx as *const ecp_keypair)).Q };
+        let q = &unsafe { (*(self.inner.private_pk_ctx as *const ecp_keypair)).private_Q };
         EcPoint::copy(q)
     }
 
@@ -486,7 +505,7 @@ impl Pk {
             _ => return Err(Error::PkTypeMismatch),
         }
 
-        let d = &unsafe { (*(self.inner.pk_ctx as *const ecp_keypair)).d };
+        let d = &unsafe { (*(self.inner.private_pk_ctx as *const ecp_keypair)).private_d };
         Mpi::copy(d)
     }
 
@@ -500,7 +519,7 @@ impl Pk {
 
         unsafe {
             rsa_export(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 n.handle_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
@@ -523,7 +542,7 @@ impl Pk {
 
         unsafe {
             rsa_export(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 ptr::null_mut(),
                 p.handle_mut(),
                 ptr::null_mut(),
@@ -546,7 +565,7 @@ impl Pk {
 
         unsafe {
             rsa_export(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 ptr::null_mut(),
                 ptr::null_mut(),
                 q.handle_mut(),
@@ -569,7 +588,7 @@ impl Pk {
 
         unsafe {
             rsa_export(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 ptr::null_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
@@ -592,7 +611,7 @@ impl Pk {
 
         unsafe {
             rsa_export_crt(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 dp.handle_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
@@ -613,7 +632,7 @@ impl Pk {
 
         unsafe {
             rsa_export_crt(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 ptr::null_mut(),
                 dq.handle_mut(),
                 ptr::null_mut(),
@@ -634,7 +653,7 @@ impl Pk {
 
         unsafe {
             rsa_export_crt(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 ptr::null_mut(),
                 ptr::null_mut(),
                 qp.handle_mut(),
@@ -654,7 +673,7 @@ impl Pk {
         let mut e: [u8; 4] = [0, 0, 0, 0];
         unsafe {
             rsa_export_raw(
-                self.inner.pk_ctx as *const rsa_context,
+                self.inner.private_pk_ctx as *const rsa_context,
                 ptr::null_mut(),
                 0,
                 ptr::null_mut(),
@@ -664,7 +683,7 @@ impl Pk {
                 ptr::null_mut(),
                 0,
                 e.as_mut_ptr(),
-                e.len(),
+                e.len() as _,
             )
             .into_result()?;
         }
@@ -683,9 +702,9 @@ impl Pk {
         rng: &mut F,
     ) -> Result<usize> {
         if self.pk_type() == Type::Rsa {
-            let ctx = self.inner.pk_ctx as *mut rsa_context;
-            if unsafe { (*ctx).padding  == RAW_RSA_DECRYPT } {
-                let olen = self.len() / 8;
+            let ctx = self.inner.private_pk_ctx as *mut rsa_context;
+            if unsafe { (*ctx).private_padding == RAW_RSA_DECRYPT } {
+                let olen = self.len() as usize / 8;
                 if plain.len() < olen {
                     return Err(Error::RsaOutputTooLarge);
                 }
@@ -696,27 +715,29 @@ impl Pk {
                         Some(F::call),
                         rng.data_ptr(),
                         cipher.as_ptr(),
-                        plain.as_mut_ptr()
-                    ).into_result()?;
+                        plain.as_mut_ptr(),
+                    )
+                    .into_result()?;
                 };
                 return Ok(olen);
             }
         }
 
-        let mut ret = 0usize;
+        let mut ret = 0;
         unsafe {
             pk_decrypt(
                 &mut self.inner,
                 cipher.as_ptr(),
-                cipher.len(),
+                cipher.len() as _,
                 plain.as_mut_ptr(),
                 &mut ret,
-                plain.len(),
+                plain.len() as _,
                 Some(F::call),
                 rng.data_ptr(),
-            ).into_result()?;
+            )
+            .into_result()?;
         };
-        Ok(ret)
+        Ok(ret as _)
     }
 
     /// Decrypt using a custom label.
@@ -732,27 +753,27 @@ impl Pk {
         if self.pk_type() != Type::Rsa {
             return Err(Error::PkTypeMismatch);
         }
-        let ctx = self.inner.pk_ctx as *mut rsa_context;
-        if unsafe { (*ctx).padding != RSA_PKCS_V21 } {
+        let ctx = self.inner.private_pk_ctx as *mut rsa_context;
+        if unsafe { (*ctx).private_padding != RSA_PKCS_V21 } {
             return Err(Error::RsaInvalidPadding);
         }
 
-        let mut ret = 0usize;
+        let mut ret = 0;
         unsafe {
             rsa_rsaes_oaep_decrypt(
                 ctx,
                 Some(F::call),
                 rng.data_ptr(),
-                RSA_PRIVATE,
                 label.as_ptr(),
-                label.len(),
+                label.len() as _,
                 &mut ret,
                 cipher.as_ptr(),
                 plain.as_mut_ptr(),
-                plain.len(),
-            ).into_result()?;
+                plain.len() as _,
+            )
+            .into_result()?;
         }
-        Ok(ret)
+        Ok(ret as _)
     }
 
     pub fn encrypt<F: Random>(
@@ -761,20 +782,21 @@ impl Pk {
         cipher: &mut [u8],
         rng: &mut F,
     ) -> Result<usize> {
-        let mut ret = 0usize;
+        let mut ret = 0;
         unsafe {
             pk_encrypt(
                 &mut self.inner,
                 plain.as_ptr(),
-                plain.len(),
+                plain.len() as _,
                 cipher.as_mut_ptr(),
                 &mut ret,
-                cipher.len(),
+                cipher.len() as _,
                 Some(F::call),
                 rng.data_ptr(),
-            ).into_result()?;
+            )
+            .into_result()?;
         };
-        Ok(ret)
+        Ok(ret as _)
     }
 
     /// Encrypt using a custom label.
@@ -790,11 +812,11 @@ impl Pk {
         if self.pk_type() != Type::Rsa {
             return Err(Error::PkTypeMismatch);
         }
-        let ctx = self.inner.pk_ctx as *mut rsa_context;
-        if unsafe { (*ctx).padding != RSA_PKCS_V21 } {
+        let ctx = self.inner.private_pk_ctx as *mut rsa_context;
+        if unsafe { (*ctx).private_padding != RSA_PKCS_V21 } {
             return Err(Error::RsaInvalidPadding);
         }
-        let olen = self.len() / 8;
+        let olen = self.len() as usize / 8;
         if cipher.len() < olen {
             return Err(Error::RsaOutputTooLarge);
         }
@@ -804,13 +826,13 @@ impl Pk {
                 ctx,
                 Some(F::call),
                 rng.data_ptr(),
-                RSA_PUBLIC,
                 label.as_ptr(),
-                label.len(),
-                plain.len(),
+                label.len() as _,
+                plain.len() as _,
                 plain.as_ptr(),
-                cipher.as_mut_ptr()
-            ).into_result()?;
+                cipher.as_mut_ptr(),
+            )
+            .into_result()?;
         }
         Ok(olen)
     }
@@ -834,12 +856,12 @@ impl Pk {
     ) -> Result<usize> {
         // If hash or sig are allowed with size 0 (&[]) then mbedtls will attempt to auto-detect size and cause an invalid write.
         if hash.len() == 0 || sig.len() == 0 {
-            return Err(Error::PkBadInputData)
+            return Err(Error::PkBadInputData);
         }
 
         match self.pk_type() {
             Type::Rsa | Type::RsaAlt | Type::RsassaPss => {
-                if sig.len() < (self.len() / 8) {
+                if sig.len() < (self.len() as usize / 8) {
                     return Err(Error::PkSigLenMismatch);
                 }
             }
@@ -850,20 +872,22 @@ impl Pk {
             }
             _ => return Err(Error::PkSigLenMismatch),
         }
-        let mut ret = 0usize;
+        let mut ret = 0;
         unsafe {
             pk_sign(
                 &mut self.inner,
                 md.into(),
                 hash.as_ptr(),
-                hash.len(),
+                hash.len() as _,
                 sig.as_mut_ptr(),
+                sig.len() as _,
                 &mut ret,
                 Some(F::call),
                 rng.data_ptr(),
-            ).into_result()?;
+            )
+            .into_result()?;
         };
-        Ok(ret)
+        Ok(ret as _)
     }
 
     pub fn sign_deterministic<F: Random>(
@@ -875,7 +899,7 @@ impl Pk {
     ) -> Result<usize> {
         // If hash or sig are allowed with size 0 (&[]) then mbedtls will attempt to auto-detect size and cause an invalid write.
         if hash.len() == 0 || sig.len() == 0 {
-            return Err(Error::PkBadInputData)
+            return Err(Error::PkBadInputData);
         }
 
         use crate::rng::RngCallbackMut;
@@ -894,23 +918,27 @@ impl Pk {
 
             let mut rng = Rfc6979Rng::new(md, &q, &x, hash, &random_seed)?;
 
-            let mut ret = 0usize;
+            let mut ret = 0;
             unsafe {
                 pk_sign(
                     &mut self.inner,
                     md.into(),
                     hash.as_ptr(),
-                    hash.len(),
+                    hash.len() as _,
                     sig.as_mut_ptr(),
+                    sig.len() as _,
                     &mut ret,
                     Some(Rfc6979Rng::call_mut),
                     rng.data_ptr_mut(),
-                ).into_result()?;
+                )
+                .into_result()?;
             };
-            Ok(ret)
+            Ok(ret as _)
         } else if self.pk_type() == Type::Rsa {
             // Reject sign_deterministic being use for PSS
-            if unsafe { (*(self.inner.pk_ctx as *mut rsa_context)).padding } != RSA_PKCS_V15 {
+            if unsafe { (*(self.inner.private_pk_ctx as *mut rsa_context)).private_padding }
+                != RSA_PKCS_V15
+            {
                 return Err(Error::PkInvalidAlg);
             }
 
@@ -925,17 +953,17 @@ impl Pk {
     pub fn verify(&mut self, md: MdType, hash: &[u8], sig: &[u8]) -> Result<()> {
         // If hash or sig are allowed with size 0 (&[]) then mbedtls will attempt to auto-detect size and cause an invalid write.
         if hash.len() == 0 || sig.len() == 0 {
-            return Err(Error::PkBadInputData)
+            return Err(Error::PkBadInputData);
         }
-        
+
         unsafe {
             pk_verify(
                 &mut self.inner,
                 md.into(),
                 hash.as_ptr(),
-                hash.len(),
+                hash.len() as _,
                 sig.as_ptr(),
-                sig.len(),
+                sig.len() as _,
             )
             .into_result()
             .map(|_| ())
@@ -955,8 +983,8 @@ impl Pk {
             | (Type::Eckey, Type::EckeyDh)
             | (Type::EckeyDh, Type::EckeyDh) => unsafe {
                 let mut ecdh = ec::Ecdh::from_keys(
-                    UnsafeFrom::from(self.inner.pk_ctx as *const _).unwrap(),
-                    UnsafeFrom::from(other.inner.pk_ctx as *const _).unwrap(),
+                    UnsafeFrom::from(self.inner.private_pk_ctx as *const _).unwrap(),
+                    UnsafeFrom::from(other.inner.private_pk_ctx as *const _).unwrap(),
                 )?;
                 ecdh.calc_secret(shared, rng)
             },
@@ -966,7 +994,7 @@ impl Pk {
 
     pub fn write_private_der<'buf>(&mut self, buf: &'buf mut [u8]) -> Result<Option<&'buf [u8]>> {
         match unsafe {
-            pk_write_key_der(&mut self.inner, buf.as_mut_ptr(), buf.len()).into_result()
+            pk_write_key_der(&mut self.inner, buf.as_mut_ptr(), buf.len() as _).into_result()
         } {
             Err(Error::Asn1BufTooSmall) => Ok(None),
             Err(e) => Err(e),
@@ -983,7 +1011,7 @@ impl Pk {
 
     pub fn write_private_pem<'buf>(&mut self, buf: &'buf mut [u8]) -> Result<Option<&'buf [u8]>> {
         match unsafe {
-            pk_write_key_pem(&mut self.inner, buf.as_mut_ptr(), buf.len()).into_result()
+            pk_write_key_pem(&mut self.inner, buf.as_mut_ptr(), buf.len() as _).into_result()
         } {
             Err(Error::Base64BufferTooSmall) => Ok(None),
             Err(e) => Err(e),
@@ -1002,7 +1030,7 @@ impl Pk {
 
     pub fn write_public_der<'buf>(&mut self, buf: &'buf mut [u8]) -> Result<Option<&'buf [u8]>> {
         match unsafe {
-            pk_write_pubkey_der(&mut self.inner, buf.as_mut_ptr(), buf.len()).into_result()
+            pk_write_pubkey_der(&mut self.inner, buf.as_mut_ptr(), buf.len() as _).into_result()
         } {
             Err(Error::Asn1BufTooSmall) => Ok(None),
             Err(e) => Err(e),
@@ -1019,7 +1047,7 @@ impl Pk {
 
     pub fn write_public_pem<'buf>(&mut self, buf: &'buf mut [u8]) -> Result<Option<&'buf [u8]>> {
         match unsafe {
-            pk_write_pubkey_pem(&mut self.inner, buf.as_mut_ptr(), buf.len()).into_result()
+            pk_write_pubkey_pem(&mut self.inner, buf.as_mut_ptr(), buf.len() as _).into_result()
         } {
             Err(Error::Base64BufferTooSmall) => Ok(None),
             Err(e) => Err(e),
@@ -1055,7 +1083,7 @@ impl Pk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hash::{Type, MdInfo};
+    use crate::hash::{MdInfo, Type};
     use crate::pk::Type as PkType;
 
     // This is test data that must match library output *exactly*
@@ -1182,30 +1210,40 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
 
     #[test]
     fn generate_ec_curve25519() {
-        let _generated =
-            Pk::generate_ec(&mut crate::test_support::rand::test_rng(), EcGroupId::Curve25519).unwrap();
+        let _generated = Pk::generate_ec(
+            &mut crate::test_support::rand::test_rng(),
+            EcGroupId::Curve25519,
+        )
+        .unwrap();
         // mbedtls does not have an OID for Curve25519, so can't write it as PEM
     }
 
     #[test]
     fn generate_ec_secp192r1() {
-        let _generated =
-            Pk::generate_ec(&mut crate::test_support::rand::test_rng(), EcGroupId::SecP192R1)
-                .unwrap()
-                .write_private_pem_string()
-                .unwrap();
+        let _generated = Pk::generate_ec(
+            &mut crate::test_support::rand::test_rng(),
+            EcGroupId::SecP192R1,
+        )
+        .unwrap()
+        .write_private_pem_string()
+        .unwrap();
     }
 
     #[test]
     fn generate_ec_secp256r1() {
-        let mut key1 =
-            Pk::generate_ec(&mut crate::test_support::rand::test_rng(), EcGroupId::SecP256R1).unwrap();
+        let mut key1 = Pk::generate_ec(
+            &mut crate::test_support::rand::test_rng(),
+            EcGroupId::SecP256R1,
+        )
+        .unwrap();
         let pem1 = key1.write_private_pem_string().unwrap();
 
         let secp256r1 = EcGroup::new(EcGroupId::SecP256R1).unwrap();
-        let mut key2 =
-            Pk::generate_ec(&mut crate::test_support::rand::test_rng(), secp256r1.clone())
-                .unwrap();
+        let mut key2 = Pk::generate_ec(
+            &mut crate::test_support::rand::test_rng(),
+            secp256r1.clone(),
+        )
+        .unwrap();
         let pem2 = key2.write_private_pem_string().unwrap();
 
         assert_eq!(pem1, pem2);
@@ -1228,11 +1266,13 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
 
     #[test]
     fn generate_ec_secp256k1() {
-        let _generated =
-            Pk::generate_ec(&mut crate::test_support::rand::test_rng(), EcGroupId::SecP256K1)
-                .unwrap()
-                .write_private_pem_string()
-                .unwrap();
+        let _generated = Pk::generate_ec(
+            &mut crate::test_support::rand::test_rng(),
+            EcGroupId::SecP256K1,
+        )
+        .unwrap()
+        .write_private_pem_string()
+        .unwrap();
     }
 
     #[test]
@@ -1290,17 +1330,57 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
                 .unwrap();
             pk.verify(digest, data, &signature[0..len]).unwrap();
 
-            assert_eq!(pk.verify(digest, data, &[]).unwrap_err(), Error::PkBadInputData);
-            assert_eq!(pk.verify(digest, &[], &signature[0..len]).unwrap_err(), Error::PkBadInputData);
-
+            assert_eq!(
+                pk.verify(digest, data, &[]).unwrap_err(),
+                Error::PkBadInputData
+            );
+            assert_eq!(
+                pk.verify(digest, &[], &signature[0..len]).unwrap_err(),
+                Error::PkBadInputData
+            );
 
             let mut dummy_sig = [];
-            assert_eq!(pk.sign(digest, data, &mut dummy_sig, &mut crate::test_support::rand::test_rng()).unwrap_err(), Error::PkBadInputData);
-            assert_eq!(pk.sign(digest, &[], &mut signature, &mut crate::test_support::rand::test_rng()).unwrap_err(), Error::PkBadInputData);
-            
-            assert_eq!(pk.sign_deterministic(digest, data, &mut dummy_sig, &mut crate::test_support::rand::test_rng()).unwrap_err(), Error::PkBadInputData);
-            assert_eq!(pk.sign_deterministic(digest, &[], &mut signature, &mut crate::test_support::rand::test_rng()).unwrap_err(), Error::PkBadInputData);
+            assert_eq!(
+                pk.sign(
+                    digest,
+                    data,
+                    &mut dummy_sig,
+                    &mut crate::test_support::rand::test_rng()
+                )
+                .unwrap_err(),
+                Error::PkBadInputData
+            );
+            assert_eq!(
+                pk.sign(
+                    digest,
+                    &[],
+                    &mut signature,
+                    &mut crate::test_support::rand::test_rng()
+                )
+                .unwrap_err(),
+                Error::PkBadInputData
+            );
 
+            assert_eq!(
+                pk.sign_deterministic(
+                    digest,
+                    data,
+                    &mut dummy_sig,
+                    &mut crate::test_support::rand::test_rng()
+                )
+                .unwrap_err(),
+                Error::PkBadInputData
+            );
+            assert_eq!(
+                pk.sign_deterministic(
+                    digest,
+                    &[],
+                    &mut signature,
+                    &mut crate::test_support::rand::test_rng()
+                )
+                .unwrap_err(),
+                Error::PkBadInputData
+            );
         }
     }
 
@@ -1364,18 +1444,24 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
         let mut cipher1 = [0u8; 2048 / 8];
         let mut cipher2 = [0u8; 2048 / 8];
         assert_eq!(
-            pk.encrypt(b"test", &mut cipher1, &mut crate::test_support::rand::test_rng())
-                .unwrap(),
+            pk.encrypt(
+                b"test",
+                &mut cipher1,
+                &mut crate::test_support::rand::test_rng()
+            )
+            .unwrap(),
             cipher1.len()
         );
         pk.set_options(Options::Rsa {
-            padding: RsaPadding::Pkcs1V21 {
-                mgf: Type::Sha256,
-            },
+            padding: RsaPadding::Pkcs1V21 { mgf: Type::Sha256 },
         });
         assert_eq!(
-            pk.encrypt(b"test", &mut cipher2, &mut crate::test_support::rand::test_rng())
-                .unwrap(),
+            pk.encrypt(
+                b"test",
+                &mut cipher2,
+                &mut crate::test_support::rand::test_rng()
+            )
+            .unwrap(),
             cipher2.len()
         );
         assert_ne!(&cipher1[..], &cipher2[..]);
@@ -1387,18 +1473,17 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
         let mut cipher = [0u8; 2048 / 8];
         let mut rng = crate::test_support::rand::test_rng();
         pk.set_options(Options::Rsa {
-            padding: RsaPadding::Pkcs1V15
+            padding: RsaPadding::Pkcs1V15,
         });
         assert_eq!(
-            pk.encrypt(b"test", &mut cipher, &mut rng)
-                .unwrap(),
+            pk.encrypt(b"test", &mut cipher, &mut rng).unwrap(),
             cipher.len()
         );
         let mut decrypted_data1 = [0u8; 2048 / 8];
         let length_with_padding = pk.decrypt(&cipher, &mut decrypted_data1, &mut rng).unwrap();
         // set raw decryption padding mode to perform raw decryption
         pk.set_options(Options::Rsa {
-            padding: RsaPadding::None
+            padding: RsaPadding::None,
         });
         let mut decrypted_data2 = [0u8; 2048 / 8];
         let length_without_padding = pk.decrypt(&cipher, &mut decrypted_data2, &mut rng).unwrap();
@@ -1414,11 +1499,15 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
         let mut cipher = [0u8; 2048 / 8];
         // set raw decryption padding mode
         pk.set_options(Options::Rsa {
-            padding: RsaPadding::None
+            padding: RsaPadding::None,
         });
         assert_eq!(
-            pk.encrypt(b"test", &mut cipher, &mut crate::test_support::rand::test_rng())
-                .unwrap_err(),
+            pk.encrypt(
+                b"test",
+                &mut cipher,
+                &mut crate::test_support::rand::test_rng()
+            )
+            .unwrap_err(),
             Error::RsaInvalidPadding
         );
     }
@@ -1429,26 +1518,44 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
         let mut cipher = [0u8; 2048 / 8];
         // set raw decryption padding mode
         pk.set_options(Options::Rsa {
-            padding: RsaPadding::Pkcs1V21 { mgf: MdType::Sha256 }
+            padding: RsaPadding::Pkcs1V21 {
+                mgf: MdType::Sha256,
+            },
         });
 
         let plain = b"testing123";
-        let cipher_len = pk.encrypt_with_label(plain, &mut cipher,
-                                         &mut crate::test_support::rand::test_rng(),
-                                         b"MY_LABEL").unwrap();
+        let cipher_len = pk
+            .encrypt_with_label(
+                plain,
+                &mut cipher,
+                &mut crate::test_support::rand::test_rng(),
+                b"MY_LABEL",
+            )
+            .unwrap();
         assert_eq!(cipher_len, cipher.len());
 
         let mut plain_decrypted = [0u8; 10];
-        let plain_len = pk.decrypt_with_label(&cipher, &mut plain_decrypted,
-                                              &mut crate::test_support::rand::test_rng(),
-                                              b"MY_LABEL").unwrap();
+        let plain_len = pk
+            .decrypt_with_label(
+                &cipher,
+                &mut plain_decrypted,
+                &mut crate::test_support::rand::test_rng(),
+                b"MY_LABEL",
+            )
+            .unwrap();
         assert_eq!(plain_len, plain.len());
         assert_eq!(&plain_decrypted, plain);
 
-        assert_eq!(pk.decrypt_with_label(&cipher, &mut plain_decrypted,
-                                              &mut crate::test_support::rand::test_rng(),
-                                              b"WRONG_LABEL").unwrap_err(),
-                   Error::RsaInvalidPadding);
+        assert_eq!(
+            pk.decrypt_with_label(
+                &cipher,
+                &mut plain_decrypted,
+                &mut crate::test_support::rand::test_rng(),
+                b"WRONG_LABEL"
+            )
+            .unwrap_err(),
+            Error::RsaInvalidPadding
+        );
     }
 
     #[test]
@@ -1462,8 +1569,13 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
             padding: RsaPadding::None,
         });
         assert_eq!(
-            pk.sign(Type::Sha256, data, &mut signature, &mut crate::test_support::rand::test_rng())
-                .unwrap_err(),
+            pk.sign(
+                Type::Sha256,
+                data,
+                &mut signature,
+                &mut crate::test_support::rand::test_rng()
+            )
+            .unwrap_err(),
             Error::RsaInvalidPadding
         );
     }
@@ -1479,15 +1591,20 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
         pk.set_options(Options::Rsa {
             padding: RsaPadding::Pkcs1V21 { mgf: digest },
         });
-        let len = pk.sign(digest, data, &mut signature, &mut crate::test_support::rand::test_rng())
+        let len = pk
+            .sign(
+                digest,
+                data,
+                &mut signature,
+                &mut crate::test_support::rand::test_rng(),
+            )
             .unwrap();
         // set raw decryption padding mode
         pk.set_options(Options::Rsa {
             padding: RsaPadding::None,
         });
         assert_eq!(
-            pk.verify(digest, data, &signature[0..len])
-                .unwrap_err(),
+            pk.verify(digest, data, &signature[0..len]).unwrap_err(),
             Error::RsaInvalidPadding
         );
     }
@@ -1536,5 +1653,4 @@ iy6KC991zzvaWY/Ys+q/84Afqa+0qJKQnPuy/7F5GkVdQA/lfbhi
         assert!(pk.custom_public_key().is_err());
         assert!(pk.custom_private_key().is_err());
     }
-
 }

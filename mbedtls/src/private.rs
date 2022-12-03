@@ -35,7 +35,7 @@ where
 
     let mut vec = Vec::with_capacity(2048 /* big because of bug in x509write */);
     loop {
-        match f(vec.as_mut_ptr(), vec.capacity()).into_result() {
+        match f(vec.as_mut_ptr(), vec.capacity() as _).into_result() {
             Err(Error::Asn1BufTooSmall)
             | Err(Error::Base64BufferTooSmall)
             | Err(Error::EcpBufferTooSmall)

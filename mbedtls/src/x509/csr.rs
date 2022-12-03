@@ -13,10 +13,10 @@ use crate::alloc_prelude::*;
 
 use mbedtls_sys::*;
 
-use crate::private::{alloc_string_repeat, alloc_vec_repeat};
 use crate::error::{Error, IntoResult, Result};
-use crate::pk::Pk;
 use crate::hash::Type as MdType;
+use crate::pk::Pk;
+use crate::private::{alloc_string_repeat, alloc_vec_repeat};
 use crate::rng::Random;
 
 define!(
@@ -30,20 +30,19 @@ define!(
 impl Csr {
     pub fn from_der(der: &[u8]) -> Result<Csr> {
         let mut ret = Self::init();
-        unsafe { x509_csr_parse_der(&mut ret.inner, der.as_ptr(), der.len()) }.into_result()?;
+        unsafe { x509_csr_parse_der(&mut ret.inner, der.as_ptr(), der.len() as _) }
+            .into_result()?;
         Ok(ret)
     }
 
     pub fn from_pem(pem: &[u8]) -> Result<Csr> {
         let mut ret = Self::init();
-        unsafe { x509_csr_parse(&mut ret.inner, pem.as_ptr(), pem.len()) }.into_result()?;
+        unsafe { x509_csr_parse(&mut ret.inner, pem.as_ptr(), pem.len() as _) }.into_result()?;
         Ok(ret)
     }
 
     pub fn subject(&self) -> Result<String> {
-        alloc_string_repeat(|buf, size| unsafe {
-            x509_dn_gets(buf, size, &self.inner.subject)
-        })
+        alloc_string_repeat(|buf, size| unsafe { x509_dn_gets(buf, size, &self.inner.subject) })
     }
 
     pub fn subject_raw(&self) -> Result<Vec<u8>> {
@@ -58,7 +57,7 @@ impl Csr {
     }
 
     pub fn as_der(&self) -> &[u8] {
-        unsafe { ::core::slice::from_raw_parts(self.inner.raw.p, self.inner.raw.len) }
+        unsafe { ::core::slice::from_raw_parts(self.inner.raw.p, self.inner.raw.len as _) }
     }
 }
 
@@ -82,7 +81,8 @@ define!(
 
 impl<'a> Builder<'a> {
     unsafe fn subject_with_nul_unchecked(&mut self, subject: &[u8]) -> Result<&mut Self> {
-        x509write_csr_set_subject_name(&mut self.inner, subject.as_ptr() as *const _).into_result()?;
+        x509write_csr_set_subject_name(&mut self.inner, subject.as_ptr() as *const _)
+            .into_result()?;
         Ok(self)
     }
 
@@ -119,7 +119,8 @@ impl<'a> Builder<'a> {
             return Err(Error::X509FeatureUnavailable);
         }
 
-        unsafe { x509write_csr_set_key_usage(&mut self.inner, (usage & 0xfe) as u8) }.into_result()?;
+        unsafe { x509write_csr_set_key_usage(&mut self.inner, (usage & 0xfe) as u8) }
+            .into_result()?;
         Ok(self)
     }
 
@@ -128,11 +129,13 @@ impl<'a> Builder<'a> {
             x509write_csr_set_extension(
                 &mut self.inner,
                 oid.as_ptr() as *const _,
-                oid.len(),
+                oid.len() as _,
+                0,
                 val.as_ptr(),
-                val.len()
+                val.len() as _,
             )
-        }.into_result()?;
+        }
+        .into_result()?;
         Ok(self)
     }
 
@@ -145,7 +148,7 @@ impl<'a> Builder<'a> {
             x509write_csr_der(
                 &mut self.inner,
                 buf.as_mut_ptr(),
-                buf.len(),
+                buf.len() as _,
                 Some(F::call),
                 rng.data_ptr(),
             )
@@ -175,7 +178,7 @@ impl<'a> Builder<'a> {
             x509write_csr_der(
                 &mut self.inner,
                 buf.as_mut_ptr(),
-                buf.len(),
+                buf.len() as _,
                 Some(F::call),
                 rng.data_ptr(),
             )
@@ -218,7 +221,8 @@ mod tests {
     impl Test {
         fn new() -> Self {
             Test {
-                key: Pk::from_private_key(crate::test_support::keys::PEM_SELF_SIGNED_KEY, None).unwrap(),
+                key: Pk::from_private_key(crate::test_support::keys::PEM_SELF_SIGNED_KEY, None)
+                    .unwrap(),
             }
         }
 

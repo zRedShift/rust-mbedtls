@@ -79,15 +79,30 @@ define!(
 
 impl Ecdh {
     pub fn from_keys(private: &EcpKeypair, public: &EcpKeypair) -> Result<Ecdh> {
-        if public.inner.grp.id == ECP_DP_NONE || public.inner.grp.id != private.inner.grp.id {
+        if public.inner.private_grp.id == ECP_DP_NONE
+            || public.inner.private_grp.id != private.inner.private_grp.id
+        {
             return Err(Error::EcpBadInputData);
         }
 
         let mut ret = Self::init();
         unsafe {
-            ecp_group_copy(&mut ret.inner.grp, &private.inner.grp).into_result()?;
-            mpi_copy(&mut ret.inner.d, &private.inner.d).into_result()?;
-            ecp_copy(&mut ret.inner.Qp, &public.inner.Q).into_result()?;
+            // let ret = ret.inner.private_ctx.private_mbed_ecdh;
+            ecp_group_copy(
+                &mut ret.inner.private_ctx.private_mbed_ecdh.private_grp,
+                &private.inner.private_grp,
+            )
+            .into_result()?;
+            mpi_copy(
+                &mut ret.inner.private_ctx.private_mbed_ecdh.private_d,
+                &private.inner.private_d,
+            )
+            .into_result()?;
+            ecp_copy(
+                &mut ret.inner.private_ctx.private_mbed_ecdh.private_Qp,
+                &public.inner.private_Q,
+            )
+            .into_result()?;
         }
         Ok(ret)
     }
@@ -103,13 +118,13 @@ impl Ecdh {
                 &mut self.inner,
                 &mut olen,
                 shared.as_mut_ptr(),
-                shared.len(),
+                shared.len() as _,
                 Some(F::call),
                 rng.data_ptr(),
             )
             .into_result()?
         };
-        Ok(olen)
+        Ok(olen as _)
     }
 }
 

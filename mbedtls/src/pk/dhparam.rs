@@ -24,7 +24,7 @@ impl Dhm {
     /// When calling on PEM-encoded data, `params` must be NULL-terminated
     pub fn from_params(params: &[u8]) -> Result<Dhm> {
         let mut ret = Self::init();
-        unsafe { dhm_parse_dhm(&mut ret.inner, params.as_ptr(), params.len()) }.into_result()?;
+        unsafe { dhm_parse_dhm(&mut ret.inner, params.as_ptr(), params.len() as _) }.into_result()?;
         Ok(ret)
     }
 }

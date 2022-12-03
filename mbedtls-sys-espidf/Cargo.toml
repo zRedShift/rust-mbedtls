@@ -1,0 +1,40 @@
+[package]
+name = "mbedtls-sys-espidf"
+version = "0.1.0"
+authors = ["Jethro Beekman <jethro@fortanix.com>"]
+license = "Apache-2.0/GPL-2.0+"
+description = """
+Rust bindings for MbedTLS.
+
+This version generates the correct bindings at compile time using bindgen."""
+readme = "../README.md"
+edition = "2021"
+repository = "https://github.com/fortanix/rust-mbedtls"
+documentation = "https://docs.rs/mbedtls-sys-auto/"
+
+[lib]
+name = "mbedtls_sys"
+
+[dependencies]
+esp-idf-sys = "0.31.11"
+
+[features]
+# If you use mbedtls-sys in a no_std configuration, you need to provide your
+# own versions of the following functions:
+#
+# * calloc/free
+# * strstr/strlen/strncpy/strncmp/strcmp/snprintf
+# * memmove/memcpy/memcmp/memset
+# * rand/printf (used only for self tests. optionally use custom_printf)
+default = ["std", "debug", "threading", "time", "legacy_protocols"]
+std = ["debug"] # deprecated automatic enabling of debug, can be removed on major version bump
+debug = []
+custom_printf = []
+custom_has_support = []
+aes_alt = []
+threading = []
+time = []
+legacy_protocols = []
+mpi_force_c_code = []
+trusted_cert_callback = []
+

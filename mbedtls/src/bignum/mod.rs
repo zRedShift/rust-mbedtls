@@ -12,11 +12,11 @@ use mbedtls_sys::*;
 #[cfg(not(feature = "std"))]
 use crate::alloc_prelude::*;
 
+use crate::rng::Random;
 use core::cmp::Ordering;
 use core::fmt::{Binary, Debug, Display, Formatter, Octal, Result as FmtResult, UpperHex};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
 use core::ops::{Shl, ShlAssign, Shr, ShrAssign};
-use crate::rng::Random;
 
 pub use mbedtls_sys::mpi_sint;
 
@@ -81,7 +81,7 @@ impl ::core::str::FromStr for Mpi {
     }
 }
 
-#[derive(Debug,Copy,Clone,Eq,PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Sign {
     Negative,
     Zero,
@@ -110,13 +110,13 @@ impl Mpi {
     /// Initialize an MPI number from big endian binary data
     pub fn from_binary(num: &[u8]) -> Result<Mpi> {
         let mut ret = Self::init();
-        unsafe { mpi_read_binary(&mut ret.inner, num.as_ptr(), num.len()) }.into_result()?;
+        unsafe { mpi_read_binary(&mut ret.inner, num.as_ptr(), num.len() as _) }.into_result()?;
         Ok(ret)
     }
 
     pub fn get_bit(&self, bit: usize) -> bool {
         // does not fail
-        if unsafe { mpi_get_bit(&self.inner, bit) } == 1 {
+        if unsafe { mpi_get_bit(&self.inner, bit as _) } == 1 {
             true
         } else {
             false
@@ -125,14 +125,14 @@ impl Mpi {
 
     pub fn set_bit(&mut self, bit: usize, val: bool) -> Result<()> {
         unsafe {
-            mpi_set_bit(&mut self.inner, bit, val as u8).into_result()?;
+            mpi_set_bit(&mut self.inner, bit as _, val as u8).into_result()?;
         }
         Ok(())
     }
 
     fn get_limb(&self, n: usize) -> mpi_uint {
-        if n < self.inner.n {
-            unsafe { *self.inner.p.offset(n as isize) }
+        if n < self.inner.private_n as _ {
+            unsafe { *self.inner.private_p.offset(n as isize) }
         } else {
             // zero pad
             0
@@ -168,14 +168,14 @@ impl Mpi {
             return Err(Error::from_mbedtls_code(r));
         }
 
-        let mut buf = vec![0u8; olen];
+        let mut buf = vec![0u8; olen as _];
 
         unsafe {
             mpi_write_string(
                 &self.inner,
                 radix,
                 buf.as_mut_ptr() as *mut _,
-                buf.len(),
+                buf.len() as _,
                 &mut olen,
             )
         }
@@ -193,7 +193,7 @@ impl Mpi {
     pub fn to_binary(&self) -> Result<Vec<u8>> {
         let len = self.byte_length()?;
         let mut ret = vec![0u8; len];
-        unsafe { mpi_write_binary(&self.inner, ret.as_mut_ptr(), ret.len()).into_result() }?;
+        unsafe { mpi_write_binary(&self.inner, ret.as_mut_ptr(), ret.len() as _).into_result() }?;
         Ok(ret)
     }
 
@@ -204,8 +204,12 @@ impl Mpi {
         let mut ret = vec![0u8; larger_len];
         let pad_len = ret.len() - len;
         unsafe {
-            mpi_write_binary(&self.inner, ret.as_mut_ptr().offset(pad_len as isize), len)
-                .into_result()
+            mpi_write_binary(
+                &self.inner,
+                ret.as_mut_ptr().offset(pad_len as isize),
+                len as _,
+            )
+            .into_result()
         }?;
         Ok(ret)
     }
@@ -213,13 +217,13 @@ impl Mpi {
     /// Return size of this MPI in bits
     pub fn bit_length(&self) -> Result<usize> {
         let l = unsafe { mpi_bitlen(&self.inner) };
-        Ok(l)
+        Ok(l as _)
     }
 
     /// Return size of this MPI in bytes (rounded up)
     pub fn byte_length(&self) -> Result<usize> {
         let l = unsafe { mpi_size(&self.inner) };
-        Ok(l)
+        Ok(l as _)
     }
 
     pub fn divrem(&self, other: &Mpi) -> Result<(Mpi, Mpi)> {
@@ -415,13 +419,7 @@ impl Mpi {
     /// mbedtls_mpi_is_prime.
     pub fn is_probably_prime<F: Random>(&self, k: u32, rng: &mut F) -> Result<()> {
         unsafe {
-            mpi_is_prime_ext(
-                &self.inner,
-                k as i32,
-                Some(F::call),
-                rng.data_ptr(),
-            )
-            .into_result()?;
+            mpi_is_prime_ext(&self.inner, k as i32, Some(F::call), rng.data_ptr()).into_result()?;
         }
         Ok(())
     }
@@ -723,7 +721,7 @@ impl<'a> Shl<usize> for &'a Mpi {
 
     fn shl(self, shift: usize) -> Result<Mpi> {
         let mut r = Mpi::copy(self.handle())?;
-        unsafe { mpi_shift_l(&mut r.inner, shift) }.into_result()?;
+        unsafe { mpi_shift_l(&mut r.inner, shift as _) }.into_result()?;
         Ok(r)
     }
 }
@@ -733,14 +731,14 @@ impl Shl<usize> for Mpi {
 
     fn shl(self, shift: usize) -> Result<Mpi> {
         let mut r = Mpi::copy(self.handle())?;
-        unsafe { mpi_shift_l(&mut r.inner, shift) }.into_result()?;
+        unsafe { mpi_shift_l(&mut r.inner, shift as _) }.into_result()?;
         Ok(r)
     }
 }
 
 impl ShlAssign<usize> for Mpi {
     fn shl_assign(&mut self, shift: usize) {
-        unsafe { mpi_shift_l(self.handle() as *const ::mbedtls_sys::mpi as _, shift) }
+        unsafe { mpi_shift_l(self.handle() as *const ::mbedtls_sys::mpi as _, shift as _) }
             .into_result()
             .expect("mpi_shift_l success");
     }
@@ -751,7 +749,7 @@ impl<'a> Shr<usize> for &'a Mpi {
 
     fn shr(self, shift: usize) -> Result<Mpi> {
         let mut r = Mpi::copy(self.handle())?;
-        unsafe { mpi_shift_r(&mut r.inner, shift) }.into_result()?;
+        unsafe { mpi_shift_r(&mut r.inner, shift as _) }.into_result()?;
         Ok(r)
     }
 }
@@ -761,14 +759,14 @@ impl Shr<usize> for Mpi {
 
     fn shr(self, shift: usize) -> Result<Mpi> {
         let mut r = Mpi::copy(self.handle())?;
-        unsafe { mpi_shift_r(&mut r.inner, shift) }.into_result()?;
+        unsafe { mpi_shift_r(&mut r.inner, shift as _) }.into_result()?;
         Ok(r)
     }
 }
 
 impl ShrAssign<usize> for Mpi {
     fn shr_assign(&mut self, shift: usize) {
-        unsafe { mpi_shift_r(self.handle() as *const ::mbedtls_sys::mpi as _, shift) }
+        unsafe { mpi_shift_r(self.handle() as *const ::mbedtls_sys::mpi as _, shift as _) }
             .into_result()
             .expect("mpi_shift_l success");
     }

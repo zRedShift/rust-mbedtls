@@ -7,20 +7,16 @@
  * according to those terms. */
 
 use core::fmt;
-use core::ops::{Deref, DerefMut};
-use core::ptr::NonNull;
-use core::ptr::drop_in_place;
 use core::mem::ManuallyDrop;
+use core::ops::{Deref, DerefMut};
+use core::ptr::drop_in_place;
+use core::ptr::NonNull;
 
 use mbedtls_sys::types::raw_types::c_void;
 
-extern "C" {
-    pub(crate) fn forward_mbedtls_free(n: *mut mbedtls_sys::types::raw_types::c_void);
-}
-
 #[repr(transparent)]
 pub struct Box<T> {
-    pub(crate) inner: NonNull<T>
+    pub(crate) inner: NonNull<T>,
 }
 
 impl<T> Box<T> {
@@ -53,7 +49,7 @@ impl<T> Drop for Box<T> {
     fn drop(&mut self) {
         unsafe {
             drop_in_place(self.inner.as_ptr());
-            forward_mbedtls_free(self.inner.as_ptr() as *mut c_void)
+            mbedtls_sys::free(self.inner.as_ptr() as *mut c_void)
         }
     }
 }
@@ -63,5 +59,5 @@ unsafe impl<T: Sync> Sync for Box<T> {}
 
 #[repr(transparent)]
 pub struct List<T> {
-    pub(crate) inner: Option<Box<T>>
+    pub(crate) inner: Option<Box<T>>,
 }

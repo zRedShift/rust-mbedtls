@@ -24,7 +24,7 @@ define!(
 impl Crl {
     pub fn push_from_der(&mut self, der: &[u8]) -> Result<()> {
         unsafe {
-            x509_crl_parse_der(&mut self.inner, der.as_ptr(), der.len())
+            x509_crl_parse_der(&mut self.inner, der.as_ptr(), der.len() as _)
                 .into_result()
                 .map(|_| ())
         }
@@ -32,7 +32,7 @@ impl Crl {
 
     pub fn push_from_pem(&mut self, pem: &[u8]) -> Result<()> {
         unsafe {
-            x509_crl_parse(&mut self.inner, pem.as_ptr(), pem.len())
+            x509_crl_parse(&mut self.inner, pem.as_ptr(), pem.len() as _)
                 .into_result()
                 .map(|_| ())
         }

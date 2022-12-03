@@ -8,14 +8,15 @@
 
 #[cfg(not(feature = "std"))]
 use crate::alloc_prelude::*;
+use crate::cipher::raw::CipherType;
 use crate::cipher::*;
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem::size_of;
 use core::ptr;
+use core::result::Result;
 use core::slice::from_raw_parts;
 use core::str;
-use core::result::Result;
 use mbedtls_sys::*;
 use serde;
 use serde::de::Unexpected;
@@ -49,8 +50,8 @@ enum AlgorithmContext {
     Des3(Bytes<des3_context>),
     Gcm {
         context: Bytes<gcm_context>,
-        inner_cipher_ctx: Box<SavedRawCipher>
-    }
+        inner_cipher_ctx: Box<SavedRawCipher>,
+    },
 }
 
 // Serialization support for cipher structs. We only support serialization in the "data" state.
@@ -62,8 +63,7 @@ impl<Op: Operation, T: Type> Serialize for Cipher<Op, T, CipherData> {
     {
         let saved_raw_cipher = unsafe {
             let cipher_context = self.raw_cipher.inner;
-            serialize_raw_cipher(cipher_context)
-                .map_err(ser::Error::custom)?
+            serialize_raw_cipher(cipher_context).map_err(ser::Error::custom)?
         };
 
         match Op::is_encrypt() {
@@ -73,15 +73,16 @@ impl<Op: Operation, T: Type> Serialize for Cipher<Op, T, CipherData> {
     }
 }
 
-unsafe fn serialize_raw_cipher(mut cipher_context: cipher_context_t)
-    -> Result<SavedRawCipher, &'static str> {
-
-    let cipher_id = (*(*cipher_context.cipher_info).base).cipher;
-    let cipher_mode = (*cipher_context.cipher_info).mode;
-    let key_bit_len = (*cipher_context.cipher_info).key_bitlen;
+unsafe fn serialize_raw_cipher(
+    mut cipher_context: cipher_context_t,
+) -> Result<SavedRawCipher, &'static str> {
+    let cipher_id: cipher_id_t =
+        CipherType::from((*cipher_context.private_cipher_info).private_type).into();
+    let cipher_mode = (*cipher_context.private_cipher_info).private_mode;
+    let key_bit_len = (*cipher_context.private_cipher_info).private_key_bitlen;
 
     // Null the cipher info now that we've extracted the important bits.
-    cipher_context.cipher_info = ::core::ptr::null();
+    cipher_context.private_cipher_info = ::core::ptr::null();
 
     // We only allow certain modes that we know have serialization-safe context
     // structures. If adding GCM/CCM support, be aware that they don't use the same
@@ -92,51 +93,51 @@ unsafe fn serialize_raw_cipher(mut cipher_context: cipher_context_t)
         | (CIPHER_ID_AES, MODE_OFB)
         | (CIPHER_ID_AES, MODE_CFB)
         | (CIPHER_ID_AES, MODE_ECB) => {
-            let mut aes_context = *(cipher_context.cipher_ctx as *const aes_context);
-            aes_context.rk = ::core::ptr::null_mut();
+            let aes_context = *(cipher_context.private_cipher_ctx as *const aes_context);
+            // aes_context.rk = ::core::ptr::null_mut();
             AlgorithmContext::Aes(Bytes(aes_context))
         }
         (CIPHER_ID_ARIA, MODE_CBC)
         | (CIPHER_ID_ARIA, MODE_CTR)
         | (CIPHER_ID_ARIA, MODE_CFB)
-        | (CIPHER_ID_ARIA, MODE_ECB) => {
-            AlgorithmContext::Aria(Bytes(*(cipher_context.cipher_ctx as *const aria_context)))
-        }
+        | (CIPHER_ID_ARIA, MODE_ECB) => AlgorithmContext::Aria(Bytes(
+            *(cipher_context.private_cipher_ctx as *const aria_context),
+        )),
         (CIPHER_ID_DES, MODE_CBC)
         | (CIPHER_ID_DES, MODE_CTR)
         | (CIPHER_ID_DES, MODE_OFB)
-        | (CIPHER_ID_DES, MODE_CFB) => {
-            AlgorithmContext::Des(Bytes(*(cipher_context.cipher_ctx as *const des_context)))
-        }
+        | (CIPHER_ID_DES, MODE_CFB) => AlgorithmContext::Des(Bytes(
+            *(cipher_context.private_cipher_ctx as *const des_context),
+        )),
         (CIPHER_ID_3DES, MODE_CBC)
         | (CIPHER_ID_3DES, MODE_CTR)
         | (CIPHER_ID_3DES, MODE_OFB)
         | (CIPHER_ID_3DES, MODE_CFB) => AlgorithmContext::Des3(Bytes(
-            *(cipher_context.cipher_ctx as *const des3_context),
+            *(cipher_context.private_cipher_ctx as *const des3_context),
         )),
         (CIPHER_ID_AES, MODE_GCM) => {
-            let gcm_context = *(cipher_context.cipher_ctx as *const gcm_context);
+            let gcm_context = *(cipher_context.private_cipher_ctx as *const gcm_context);
 
-            let inner_ctx = gcm_context.cipher_ctx;
+            let inner_ctx = gcm_context.private_cipher_ctx;
 
             let inner_saved_cipher = serialize_raw_cipher(inner_ctx)?;
 
             AlgorithmContext::Gcm {
                 context: Bytes(gcm_context),
-                inner_cipher_ctx: Box::new(inner_saved_cipher)
+                inner_cipher_ctx: Box::new(inner_saved_cipher),
             }
-        },
+        }
         _ => {
             return Err("unsupported algorithm for serialization");
         }
     };
 
     // Null the algorithm context
-    cipher_context.cipher_ctx = ::core::ptr::null_mut();
+    cipher_context.private_cipher_ctx = ::core::ptr::null_mut();
 
     // Null function pointers
-    cipher_context.add_padding = None;
-    cipher_context.get_padding = None;
+    cipher_context.private_add_padding = None;
+    cipher_context.private_get_padding = None;
 
     Ok(SavedRawCipher {
         cipher_id: cipher_id,
@@ -167,8 +168,7 @@ impl<'de, Op: Operation, T: Type> Deserialize<'de> for Cipher<Op, T, CipherData>
                     &"decryption",
                 ));
             }
-            SavedCipher::Encryption(raw, padding) | SavedCipher::Decryption(raw, padding)
-            => {
+            SavedCipher::Encryption(raw, padding) | SavedCipher::Decryption(raw, padding) => {
                 (raw, padding)
             }
         };
@@ -187,9 +187,10 @@ impl<'de, Op: Operation, T: Type> Deserialize<'de> for Cipher<Op, T, CipherData>
     }
 }
 
-unsafe fn deserialize_raw_cipher(raw: SavedRawCipher, padding: raw::CipherPadding)
-    -> Result<raw::Cipher, (&'static str, &'static str)> {
-
+unsafe fn deserialize_raw_cipher(
+    raw: SavedRawCipher,
+    padding: raw::CipherPadding,
+) -> Result<raw::Cipher, (&'static str, &'static str)> {
     let mut raw_cipher = match raw::Cipher::setup(
         raw.cipher_id.into(),
         raw.cipher_mode.into(),
@@ -211,42 +212,46 @@ unsafe fn deserialize_raw_cipher(raw: SavedRawCipher, padding: raw::CipherPaddin
 
     match (raw.cipher_id, raw.algorithm_ctx) {
         (CIPHER_ID_AES, AlgorithmContext::Aes(Bytes(aes_ctx))) => {
-            let ret_aes_ctx = cipher_context.cipher_ctx as *mut aes_context;
+            let ret_aes_ctx = cipher_context.private_cipher_ctx as *mut aes_context;
             *ret_aes_ctx = aes_ctx;
             // aes_ctx.rk needs to be a pointer to aes_ctx.buf, which holds the round keys.
             // We don't adjust for the padding needed on VIA Padlock (see definition of
             // mbedtls_aes_context in the mbedTLS source).
-            (*ret_aes_ctx).rk = &mut (*ret_aes_ctx).buf[0];
+            // (*ret_aes_ctx).rk = &mut (*ret_aes_ctx).buf[0];
         }
         (CIPHER_ID_ARIA, AlgorithmContext::Aria(Bytes(aria_ctx))) => {
-            *(cipher_context.cipher_ctx as *mut aria_context) = aria_ctx
+            *(cipher_context.private_cipher_ctx as *mut aria_context) = aria_ctx
         }
         (CIPHER_ID_DES, AlgorithmContext::Des(Bytes(des_ctx))) => {
-            *(cipher_context.cipher_ctx as *mut des_context) = des_ctx
+            *(cipher_context.private_cipher_ctx as *mut des_context) = des_ctx
         }
         (CIPHER_ID_3DES, AlgorithmContext::Des3(Bytes(des3_ctx))) => {
-            *(cipher_context.cipher_ctx as *mut des3_context) = des3_ctx
+            *(cipher_context.private_cipher_ctx as *mut des3_context) = des3_ctx
         }
-        (CIPHER_ID_AES, AlgorithmContext::Gcm {
-            context: Bytes(mut gcm_ctx),
-            inner_cipher_ctx
-        }) => {
-            let inner_raw_cipher = deserialize_raw_cipher(*inner_cipher_ctx, raw::CipherPadding::None)?;
-            gcm_ctx.cipher_ctx = inner_raw_cipher.into_inner();
+        (
+            CIPHER_ID_AES,
+            AlgorithmContext::Gcm {
+                context: Bytes(mut gcm_ctx),
+                inner_cipher_ctx,
+            },
+        ) => {
+            let inner_raw_cipher =
+                deserialize_raw_cipher(*inner_cipher_ctx, raw::CipherPadding::None)?;
+            gcm_ctx.private_cipher_ctx = inner_raw_cipher.into_inner();
 
-            *(cipher_context.cipher_ctx as *mut gcm_context) = gcm_ctx;
+            *(cipher_context.private_cipher_ctx as *mut gcm_context) = gcm_ctx;
         }
         _ => {
             return Err(("bad algorithm", "valid algorithm"));
         }
     };
 
-    cipher_context.key_bitlen = raw.context.0.key_bitlen;
-    cipher_context.operation = raw.context.0.operation;
-    cipher_context.unprocessed_data = raw.context.0.unprocessed_data;
-    cipher_context.unprocessed_len = raw.context.0.unprocessed_len;
-    cipher_context.iv = raw.context.0.iv;
-    cipher_context.iv_size = raw.context.0.iv_size;
+    cipher_context.private_key_bitlen = raw.context.0.private_key_bitlen;
+    cipher_context.private_operation = raw.context.0.private_operation;
+    cipher_context.private_unprocessed_data = raw.context.0.private_unprocessed_data;
+    cipher_context.private_unprocessed_len = raw.context.0.private_unprocessed_len;
+    cipher_context.private_iv = raw.context.0.private_iv;
+    cipher_context.private_iv_size = raw.context.0.private_iv_size;
 
     Ok(raw_cipher)
 }
@@ -341,11 +346,13 @@ unsafe impl BytesSerde for gcm_context {}
 
 // If the C API changes, the serde implementation needs to be reviewed for correctness.
 
-unsafe fn _check_cipher_context_t_size(ctx: cipher_context_t) -> [u8; 96] {
+unsafe fn _check_cipher_context_t_size(
+    ctx: cipher_context_t,
+) -> [u8; size_of::<cipher_context_t>()] {
     ::core::mem::transmute(ctx)
 }
 
-unsafe fn _check_aes_context_size(ctx: aes_context) -> [u8; 288] {
+unsafe fn _check_aes_context_size(ctx: aes_context) -> [u8; size_of::<aes_context>()] {
     ::core::mem::transmute(ctx)
 }
 
@@ -357,4 +364,6 @@ unsafe fn _check_des3_context_size(ctx: des3_context) -> [u8; 384] {
     ::core::mem::transmute(ctx)
 }
 
-unsafe fn _check_gcm_context_size(ctx: gcm_context) -> [u8; 424] { ::core::mem::transmute(ctx) }
+unsafe fn _check_gcm_context_size(ctx: gcm_context) -> [u8; size_of::<gcm_context>()] {
+    ::core::mem::transmute(ctx)
+}

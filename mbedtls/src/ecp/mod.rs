@@ -6,8 +6,8 @@
  * option. This file may not be copied, modified, or distributed except
  * according to those terms. */
 
-use core::convert::TryFrom;
 use crate::error::{Error, IntoResult, Result};
+use core::convert::TryFrom;
 use mbedtls_sys::*;
 
 #[cfg(not(feature = "std"))]
@@ -96,9 +96,9 @@ impl EcGroup {
     ) -> Result<EcGroup> {
         let mut ret = Self::init();
 
-        ret.inner.pbits = p.bit_length()?;
-        ret.inner.nbits = order.bit_length()?;
-        ret.inner.h = 0; // indicate to mbedtls that the values are not static constants
+        ret.inner.pbits = p.bit_length()? as _;
+        ret.inner.nbits = order.bit_length()? as _;
+        ret.inner.private_h = 0; // indicate to mbedtls that the values are not static constants
 
         let zero = Mpi::new(0)?;
 
@@ -126,9 +126,9 @@ impl EcGroup {
             ret.inner.A = a.into_inner();
             ret.inner.B = b.into_inner();
             ret.inner.N = order.into_inner();
-            ret.inner.G.X = g_x.into_inner();
-            ret.inner.G.Y = g_y.into_inner();
-            mpi_lset(&mut ret.inner.G.Z, 1);
+            ret.inner.G.private_X = g_x.into_inner();
+            ret.inner.G.private_Y = g_y.into_inner();
+            mpi_lset(&mut ret.inner.G.private_Z, 1);
         }
 
         /*
@@ -178,7 +178,7 @@ impl EcGroup {
 
     pub fn a(&self) -> Result<Mpi> {
         // Mbedtls uses A == NULL to indicate -3 mod p
-        if self.inner.A.p == ::core::ptr::null_mut() {
+        if self.inner.A.private_p == ::core::ptr::null_mut() {
             let mut neg3 = self.p()?;
             neg3 -= 3;
             Ok(neg3)
@@ -285,8 +285,10 @@ impl EcPoint {
             EcPoint::from_components(x, y)
         } else {
             let mut ret = Self::init();
-            unsafe { ecp_point_read_binary(&group.inner, &mut ret.inner, bin.as_ptr(), bin.len()) }
-                .into_result()?;
+            unsafe {
+                ecp_point_read_binary(&group.inner, &mut ret.inner, bin.as_ptr(), bin.len() as _)
+            }
+            .into_result()?;
             Ok(ret)
         }
     }
@@ -295,20 +297,20 @@ impl EcPoint {
         let mut ret = Self::init();
 
         unsafe {
-            ret.inner.X = x.into_inner();
-            ret.inner.Y = y.into_inner();
-            mpi_lset(&mut ret.inner.Z, 1).into_result()?;
+            ret.inner.private_X = x.into_inner();
+            ret.inner.private_Y = y.into_inner();
+            mpi_lset(&mut ret.inner.private_Z, 1).into_result()?;
         };
 
         Ok(ret)
     }
 
     pub fn x(&self) -> Result<Mpi> {
-        Mpi::copy(&self.inner.X)
+        Mpi::copy(&self.inner.private_X)
     }
 
     pub fn y(&self) -> Result<Mpi> {
-        Mpi::copy(&self.inner.Y)
+        Mpi::copy(&self.inner.private_Y)
     }
 
     pub fn is_zero(&self) -> Result<bool> {
@@ -410,17 +412,17 @@ impl EcPoint {
             ecp_point_write_binary(
                 &group.inner,
                 &self.inner,
-                format,
+                format as _,
                 &mut olen,
                 buf.as_mut_ptr(),
-                buf.len(),
+                buf.len() as _,
             )
         }
         .into_result()?;
 
-        assert!(olen <= buf.len());
+        assert!(olen <= buf.len() as _);
 
-        buf.truncate(olen);
+        buf.truncate(olen as _);
         Ok(buf)
     }
 }
@@ -769,12 +771,12 @@ mod tests {
 
     #[cfg(feature = "std")]
     struct Params<'a> {
-        p:   &'a str,
-        a:   &'a str,
-        b:   &'a str,
+        p: &'a str,
+        a: &'a str,
+        b: &'a str,
         g_x: &'a str,
         g_y: &'a str,
-        n:   &'a str,
+        n: &'a str,
     }
 
     #[cfg(feature = "std")]
@@ -797,13 +799,14 @@ mod tests {
     fn pathological_parameters() {
         // y² = x³ mod 7 (note  a == b == 0)
         let singular: super::Result<_> = Params {
-            p:   "0x07",
-            a:   "0x00",
-            b:   "0x00",
+            p: "0x07",
+            a: "0x00",
+            b: "0x00",
             g_x: "0x01",
             g_y: "0x02",
-            n:   "0x0b",
-        }.into();
+            n: "0x0b",
+        }
+        .into();
         assert!(singular.is_err());
     }
 
@@ -812,24 +815,26 @@ mod tests {
     fn bad_generators() {
         // y² = x³ + x + 6 (mod 7) with bad generator (1, 2) and prime order 11
         let small_curve: super::Result<_> = Params {
-            p:   "0x07",
-            a:   "0x01",
-            b:   "0x06",
+            p: "0x07",
+            a: "0x01",
+            b: "0x06",
             g_x: "0x01",
             g_y: "0x02",
-            n:   "0x0b",
-        }.into();
+            n: "0x0b",
+        }
+        .into();
         assert!(small_curve.is_err());
 
         // y² = x³ + x + 6 (mod 7) with bad generator (0, 0) and prime order 11
         let small_curve_zero_gen: super::Result<_> = Params {
-            p:   "0x07",
-            a:   "0x01",
-            b:   "0x06",
+            p: "0x07",
+            a: "0x01",
+            b: "0x06",
             g_x: "0x00",
             g_y: "0x00",
-            n:   "0x0b",
-        }.into();
+            n: "0x0b",
+        }
+        .into();
         assert!(small_curve_zero_gen.is_err());
     }
 
@@ -838,13 +843,14 @@ mod tests {
     fn unknown_cofactor() {
         // y² = x³ + x + 6 (mod 7)  with generator (1, 6) and prime order 11
         let small_curve: super::Result<_> = Params {
-            p:   "0x07",
-            a:   "0x01",
-            b:   "0x06",
+            p: "0x07",
+            a: "0x01",
+            b: "0x06",
             g_x: "0x01",
             g_y: "0x06",
-            n:   "0x0b",
-        }.into();
+            n: "0x0b",
+        }
+        .into();
         assert!(small_curve.unwrap().cofactor().is_err());
     }
 
@@ -854,13 +860,14 @@ mod tests {
         use super::Result;
         // Barreto-Naehrig 254, note a = 0
         let bn254: Result<_> = Params {
-            p:   "0x2523648240000001BA344D80000000086121000000000013A700000000000013",
-            a:   "0x0000000000000000000000000000000000000000000000000000000000000000",
-            b:   "0x0000000000000000000000000000000000000000000000000000000000000002",
+            p: "0x2523648240000001BA344D80000000086121000000000013A700000000000013",
+            a: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            b: "0x0000000000000000000000000000000000000000000000000000000000000002",
             g_x: "0x2523648240000001BA344D80000000086121000000000013A700000000000012",
             g_y: "0x0000000000000000000000000000000000000000000000000000000000000001",
-            n:   "0x2523648240000001BA344D8000000007FF9F800000000010A10000000000000D",
-        }.into();
+            n: "0x2523648240000001BA344D8000000007FF9F800000000010A10000000000000D",
+        }
+        .into();
         assert!(bn254.is_ok());
 
         // Prescribed embedded degree of 12, BLS12-381
@@ -876,44 +883,47 @@ mod tests {
 
         // Fp256BN
         let fp256_bn: Result<_> = Params {
-            p:   "0xfffffffffffcf0cd46e5f25eee71a49f0cdc65fb12980a82d3292ddbaed33013",
-            a:   "0x00",
-            b:   "0x03",
+            p: "0xfffffffffffcf0cd46e5f25eee71a49f0cdc65fb12980a82d3292ddbaed33013",
+            a: "0x00",
+            b: "0x03",
             g_x: "0x01",
             g_y: "0x02",
-            n:   "0xfffffffffffcf0cd46e5f25eee71a49e0cdc65fb1299921af62d536cd10b500d",
-        }.into();
+            n: "0xfffffffffffcf0cd46e5f25eee71a49e0cdc65fb1299921af62d536cd10b500d",
+        }
+        .into();
         assert!(fp256_bn.is_ok());
 
         // id-GostR3410-2001-CryptoPro-C-ParamSet, note g_x = 0
         let gost_r3410: Result<_> = Params {
-            p:   "0x9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d759b",
-            a:   "0x9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d7598",
-            b:   "0x805a",
+            p: "0x9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d759b",
+            a: "0x9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d7598",
+            b: "0x805a",
             g_x: "0x00",
             g_y: "0x41ece55743711a8c3cbf3783cd08c0ee4d4dc440d4641a8f366e550dfdb3bb67",
-            n:   "0x9b9f605f5a858107ab1ec85e6b41c8aa582ca3511eddfb74f02f3a6598980bb9",
-        }.into();
+            n: "0x9b9f605f5a858107ab1ec85e6b41c8aa582ca3511eddfb74f02f3a6598980bb9",
+        }
+        .into();
         assert!(gost_r3410.is_ok());
 
         // secp256k1 (Bitcoin), note a = 0
         let my_secp256k1: Result<EcGroup> = Params {
-            p:   "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
-            a:   "0x0000000000000000000000000000000000000000000000000000000000000000",
-            b:   "0x0000000000000000000000000000000000000000000000000000000000000007",
+            p: "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
+            a: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            b: "0x0000000000000000000000000000000000000000000000000000000000000007",
             g_x: "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
             g_y: "0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8",
-            n:   "0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
-        }.into();
+            n: "0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
+        }
+        .into();
         assert!(my_secp256k1.is_ok());
         let my_secp256k1 = my_secp256k1.unwrap();
 
         // We compare against the known SecP256K1
         let secp256k1 = EcGroup::new(EcGroupId::SecP256K1).unwrap();
-        assert!(my_secp256k1.p()         == secp256k1.p());
-        assert!(my_secp256k1.a()         == secp256k1.a());
-        assert!(my_secp256k1.b()         == secp256k1.b());
+        assert!(my_secp256k1.p() == secp256k1.p());
+        assert!(my_secp256k1.a() == secp256k1.a());
+        assert!(my_secp256k1.b() == secp256k1.b());
         assert!(my_secp256k1.generator() == secp256k1.generator());
-        assert!(my_secp256k1.order()     == secp256k1.order());
+        assert!(my_secp256k1.order() == secp256k1.order());
     }
 }

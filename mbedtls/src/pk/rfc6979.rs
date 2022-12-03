@@ -14,11 +14,16 @@ use mbedtls_sys::types::size_t;
 
 use crate::rng::{HmacDrbg, Random, RngCallbackMut};
 
-use crate::error::Result;
 use crate::bignum::Mpi;
+use crate::error::Result;
 use crate::hash::{MdInfo, Type};
 
-pub(crate) fn generate_rfc6979_nonce(md: &MdInfo, x: &Mpi, q: &Mpi, digest_bytes: &[u8]) -> Result<Vec<u8>> {
+pub(crate) fn generate_rfc6979_nonce(
+    md: &MdInfo,
+    x: &Mpi,
+    q: &Mpi,
+    digest_bytes: &[u8],
+) -> Result<Vec<u8>> {
     let q_bits = q.bit_length()?;
     let q_bytes = q.byte_length()?;
 
@@ -87,7 +92,7 @@ impl Rfc6979Rng {
         let k = generate_rfc6979_nonce(&md, x, q, digest_bytes)?;
 
         Ok(Rfc6979Rng {
-            k: k,
+            k,
             k_read: 0,
             rng: HmacDrbg::from_buf(md, random_seed)?,
         })
@@ -117,7 +122,7 @@ impl RngCallbackMut for Rfc6979Rng {
         len: size_t,
     ) -> c_int {
         let rng: &mut Rfc6979Rng = (user_data as *mut Rfc6979Rng).as_mut().unwrap();
-        let slice = ::core::slice::from_raw_parts_mut(data_ptr, len);
+        let slice = ::core::slice::from_raw_parts_mut(data_ptr, len as _);
         let result = rng.random_callback(slice);
         if let Err(r) = result {
             r.to_int()

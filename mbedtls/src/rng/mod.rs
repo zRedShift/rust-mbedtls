@@ -32,7 +32,7 @@ callback!(RngCallbackMut,RngCallback(data: *mut c_uchar, len: size_t) -> c_int);
 
 pub trait Random: RngCallback {
     fn random(&mut self, data: &mut [u8]) -> Result<()> where Self: Sized {
-        unsafe { Self::call(self.data_ptr(), data.as_mut_ptr(), data.len()) }.into_result()?;
+        unsafe { Self::call(self.data_ptr(), data.as_mut_ptr(), data.len() as _) }.into_result()?;
         Ok(())
     }
 }
