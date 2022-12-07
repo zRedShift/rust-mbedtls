@@ -8,14 +8,13 @@
 
 use std::sync::Arc;
 
-use mbedtls_sys::*;
 use mbedtls_sys::types::raw_types::{c_int, c_uchar, c_void};
-use mbedtls_sys::types::size_t;
+use mbedtls_sys::*;
 
 use crate::error::{IntoResult, Result};
-use crate::rng::{EntropyCallback,EntropyCallbackMut};
+use crate::rng::{EntropyCallback, EntropyCallbackMut};
 
-callback!(EntropySourceCallbackMut,EntropySourceCallback(data: *mut c_uchar, size: size_t, out: *mut size_t) -> c_int);
+callback!(EntropySourceCallbackMut,EntropySourceCallback(data: *mut c_uchar, size: usize, out: *mut usize) -> c_int);
 
 define!(
     #[c_ty(entropy_context)]
@@ -43,7 +42,7 @@ impl OsEntropy {
     pub fn add_source<F: EntropySourceCallback + 'static>(
         &mut self,
         source: Arc<F>,
-        threshold: size_t,
+        threshold: usize,
         strong: bool,
     ) -> Result<()> {
         unsafe {
@@ -54,7 +53,11 @@ impl OsEntropy {
                 Some(F::call),
                 source.data_ptr(),
                 threshold,
-                if strong { ENTROPY_SOURCE_STRONG } else { ENTROPY_SOURCE_WEAK }
+                if strong {
+                    ENTROPY_SOURCE_STRONG
+                } else {
+                    ENTROPY_SOURCE_WEAK
+                },
             )
             .into_result()?
         };
@@ -72,10 +75,10 @@ impl OsEntropy {
 
     pub fn update_manual(&self, data: &[u8]) -> Result<()> {
         // function is guarded with internal mutex: mbedtls-sys/vendor/crypto/library/entropy.c:241
-        unsafe { entropy_update_manual(self.inner_ffi_mut(), data.as_ptr(), data.len()) }.into_result()?;
+        unsafe { entropy_update_manual(self.inner_ffi_mut(), data.as_ptr(), data.len()) }
+            .into_result()?;
         Ok(())
     }
-
 
     // TODO
     // entropy_write_seed_file
@@ -85,7 +88,7 @@ impl OsEntropy {
 
 impl EntropyCallback for OsEntropy {
     #[inline(always)]
-    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int {
+    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         // mutex used in entropy_func: ../../../mbedtls-sys/vendor/crypto/library/entropy.c:348
         // note: we're not using MBEDTLS_ENTROPY_NV_SEED so the initialization is not present or a race condition.
         entropy_func(user_data, data, len)
@@ -98,7 +101,7 @@ impl EntropyCallback for OsEntropy {
 
 impl EntropyCallbackMut for OsEntropy {
     #[inline(always)]
-    unsafe extern "C" fn call_mut(user_data: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int {
+    unsafe extern "C" fn call_mut(user_data: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         // mutex used in entropy_func: ../../../mbedtls-sys/vendor/crypto/library/entropy.c:348
         // note: we're not using MBEDTLS_ENTROPY_NV_SEED so the initialization is not present or a race condition.
         entropy_func(user_data, data, len)

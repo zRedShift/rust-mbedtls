@@ -116,7 +116,7 @@ impl Mpi {
 
     pub fn get_bit(&self, bit: usize) -> bool {
         // does not fail
-        if unsafe { mpi_get_bit(&self.inner, bit as _) } == 1 {
+        if unsafe { mpi_get_bit(&self.inner, bit) } == 1 {
             true
         } else {
             false

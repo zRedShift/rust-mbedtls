@@ -10,7 +10,7 @@ use core::result::Result as StdResult;
 
 #[cfg(feature = "std")]
 use {
-    std::io::{Error as IoError, Read, Result as IoResult, Write},
+    std::io::{Error as IoError, ErrorKind, Read, Result as IoResult, Write},
     std::sync::Arc,
 };
 
@@ -18,7 +18,6 @@ use {
 use core_io::{Read, Result as IoResult, Write};
 
 use mbedtls_sys::types::raw_types::{c_int, c_uchar, c_void};
-use mbedtls_sys::types::size_t;
 use mbedtls_sys::*;
 
 use crate::alloc::List as MbedtlsList;
@@ -30,18 +29,16 @@ use crate::private::UnsafeFrom;
 use crate::ssl::config::{AuthMode, Config, Version};
 use crate::x509::{Certificate, Crl, VerifyError};
 
+pub mod asynch;
+
 pub trait IoCallback {
-    unsafe extern "C" fn call_recv(
-        user_data: *mut c_void,
-        data: *mut c_uchar,
-        len: size_t,
-    ) -> c_int
+    unsafe extern "C" fn call_recv(user_data: *mut c_void, data: *mut c_uchar, len: usize) -> c_int
     where
         Self: Sized;
     unsafe extern "C" fn call_send(
         user_data: *mut c_void,
         data: *const c_uchar,
-        len: size_t,
+        len: usize,
     ) -> c_int
     where
         Self: Sized;
@@ -52,33 +49,48 @@ impl<IO: Read + Write> IoCallback for IO {
     unsafe extern "C" fn call_recv(
         user_data: *mut c_void,
         data: *mut c_uchar,
-        len: size_t,
+        len: usize,
     ) -> c_int {
-        let len = if len > (c_int::max_value() as size_t) {
-            c_int::max_value() as size_t
+        let len = if len > (c_int::MAX as usize) {
+            c_int::MAX as usize
         } else {
             len
         };
-        match (&mut *(user_data as *mut IO)).read(::core::slice::from_raw_parts_mut(data, len as _))
+        let err = match (&mut *(user_data as *mut IO))
+            .read(::core::slice::from_raw_parts_mut(data, len as _))
         {
-            Ok(i) => i as c_int,
-            Err(_) => ::mbedtls_sys::ERR_NET_RECV_FAILED,
+            Ok(i) => return i as c_int,
+            Err(err) => err,
+        };
+        use ErrorKind::*;
+        match err.kind() {
+            WouldBlock | Interrupted => ERR_SSL_WANT_READ,
+            BrokenPipe | ConnectionReset => ERR_NET_CONN_RESET,
+            _ => ERR_NET_RECV_FAILED,
         }
     }
 
     unsafe extern "C" fn call_send(
         user_data: *mut c_void,
         data: *const c_uchar,
-        len: size_t,
+        len: usize,
     ) -> c_int {
-        let len = if len > (c_int::max_value() as size_t) {
-            c_int::max_value() as size_t
+        let len = if len > (c_int::MAX as usize) {
+            c_int::MAX as usize
         } else {
             len
         };
-        match (&mut *(user_data as *mut IO)).write(::core::slice::from_raw_parts(data, len as _)) {
-            Ok(i) => i as c_int,
-            Err(_) => ::mbedtls_sys::ERR_NET_SEND_FAILED,
+        let err = match (&mut *(user_data as *mut IO))
+            .write(::core::slice::from_raw_parts(data, len as _))
+        {
+            Ok(i) => return i as c_int,
+            Err(err) => err,
+        };
+        use ErrorKind::*;
+        match err.kind() {
+            WouldBlock | Interrupted => ERR_SSL_WANT_WRITE,
+            BrokenPipe | ConnectionReset => ERR_NET_CONN_RESET,
+            _ => ERR_NET_SEND_FAILED,
         }
     }
 
@@ -110,10 +122,10 @@ impl IoCallback for ConnectedUdpSocket {
     unsafe extern "C" fn call_recv(
         user_data: *mut c_void,
         data: *mut c_uchar,
-        len: size_t,
+        len: usize,
     ) -> c_int {
-        let len = if len > (c_int::max_value() as size_t) {
-            c_int::max_value() as size_t
+        let len = if len > (c_int::MAX as usize) {
+            c_int::MAX as usize
         } else {
             len
         };
@@ -130,10 +142,10 @@ impl IoCallback for ConnectedUdpSocket {
     unsafe extern "C" fn call_send(
         user_data: *mut c_void,
         data: *const c_uchar,
-        len: size_t,
+        len: usize,
     ) -> c_int {
-        let len = if len > (c_int::max_value() as size_t) {
-            c_int::max_value() as size_t
+        let len = if len > (c_int::MAX as usize) {
+            c_int::MAX as usize
         } else {
             len
         };

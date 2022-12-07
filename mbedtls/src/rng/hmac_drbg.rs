@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use mbedtls_sys::types::raw_types::{c_int, c_uchar, c_void};
-use mbedtls_sys::types::size_t;
 pub use mbedtls_sys::HMAC_DRBG_RESEED_INTERVAL as RESEED_INTERVAL;
 use mbedtls_sys::*;
 
@@ -52,7 +51,7 @@ impl HmacDrbg {
                 additional_entropy
                     .map(<[_]>::as_ptr)
                     .unwrap_or(::core::ptr::null()),
-                additional_entropy.map(<[_]>::len).unwrap_or(0) as _,
+                additional_entropy.map(<[_]>::len).unwrap_or(0),
             )
             .into_result()?
         };
@@ -71,7 +70,7 @@ impl HmacDrbg {
                 &mut ret.inner,
                 md_info.into(),
                 entropy.as_ptr(),
-                entropy.len() as _,
+                entropy.len(),
             )
             .into_result()?
         };
@@ -94,13 +93,13 @@ impl HmacDrbg {
                     HMAC_DRBG_PR_ON
                 } else {
                     HMAC_DRBG_PR_OFF
-                } as _,
+                },
             )
         }
     }
 
-    getter!(entropy_len() -> size_t = .private_entropy_len);
-    setter!(set_entropy_len(len: size_t) = hmac_drbg_set_entropy_len);
+    getter!(entropy_len() -> usize = .private_entropy_len);
+    setter!(set_entropy_len(len: usize) = hmac_drbg_set_entropy_len);
     getter!(reseed_interval() -> c_int = .private_reseed_interval);
     setter!(set_reseed_interval(i: c_int) = hmac_drbg_set_reseed_interval);
 
@@ -132,11 +131,7 @@ impl HmacDrbg {
 
 impl RngCallbackMut for HmacDrbg {
     #[inline(always)]
-    unsafe extern "C" fn call_mut(
-        user_data: *mut c_void,
-        data: *mut c_uchar,
-        len: size_t,
-    ) -> c_int {
+    unsafe extern "C" fn call_mut(user_data: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         hmac_drbg_random(user_data, data, len)
     }
 
@@ -147,7 +142,7 @@ impl RngCallbackMut for HmacDrbg {
 
 impl RngCallback for HmacDrbg {
     #[inline(always)]
-    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int {
+    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         // Mutex used in hmac_drbg_random: ../../../mbedtls-sys/vendor/crypto/library/hmac_drbg.c:363
         hmac_drbg_random(user_data, data, len)
     }

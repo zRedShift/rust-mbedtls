@@ -4,7 +4,6 @@ use crate::alloc_prelude::*;
 use std::sync::Arc;
 
 use mbedtls_sys::types::raw_types::*;
-use mbedtls_sys::types::size_t;
 use mbedtls_sys::*;
 
 use crate::error::{IntoResult, Result};
@@ -21,7 +20,7 @@ pub trait CookieCallback {
         p: *mut *mut c_uchar,
         end: *mut c_uchar,
         info: *const c_uchar,
-        ilen: size_t,
+        ilen: usize,
     ) -> c_int
     where
         Self: Sized;
@@ -33,9 +32,9 @@ pub trait CookieCallback {
     unsafe extern "C" fn cookie_check(
         ctx: *mut c_void,
         cookie: *const c_uchar,
-        clen: size_t,
+        clen: usize,
         info: *const c_uchar,
-        ilen: size_t,
+        ilen: usize,
     ) -> c_int
     where
         Self: Sized;
@@ -89,7 +88,7 @@ impl CookieCallback for CookieContext {
         p: *mut *mut c_uchar,
         end: *mut c_uchar,
         info: *const c_uchar,
-        ilen: size_t,
+        ilen: usize,
     ) -> c_int
     where
         Self: Sized,
@@ -100,9 +99,9 @@ impl CookieCallback for CookieContext {
     unsafe extern "C" fn cookie_check(
         ctx: *mut c_void,
         cookie: *const c_uchar,
-        clen: size_t,
+        clen: usize,
         info: *const c_uchar,
-        ilen: size_t,
+        ilen: usize,
     ) -> c_int
     where
         Self: Sized,

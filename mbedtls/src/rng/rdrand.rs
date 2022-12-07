@@ -9,7 +9,6 @@
 use core::slice::from_raw_parts_mut;
 
 use mbedtls_sys::types::raw_types::{c_int, c_uchar, c_void};
-use mbedtls_sys::types::size_t;
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86_64::{_rdrand32_step as _rdrand_step, _rdseed32_step as _rdseed_step};
@@ -69,7 +68,7 @@ use super::{EntropyCallback, EntropyCallbackMut, RngCallback, RngCallbackMut};
 pub struct Entropy;
 
 impl EntropyCallback for Entropy {
-    unsafe extern "C" fn call(_: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int {
+    unsafe extern "C" fn call(_: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         let mut outbuf = from_raw_parts_mut(data, len as _);
         write_rng_to_slice(&mut outbuf, rdseed)
     }
@@ -80,7 +79,7 @@ impl EntropyCallback for Entropy {
 }
 
 impl EntropyCallbackMut for Entropy {
-    unsafe extern "C" fn call_mut(_: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int {
+    unsafe extern "C" fn call_mut(_: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         let mut outbuf = from_raw_parts_mut(data, len as _);
         write_rng_to_slice(&mut outbuf, rdseed)
     }
@@ -93,10 +92,10 @@ impl EntropyCallbackMut for Entropy {
 pub struct Nrbg;
 
 impl RngCallbackMut for Nrbg {
-    unsafe extern "C" fn call_mut(_: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int {
+    unsafe extern "C" fn call_mut(_: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         // outbuf data/len are stack variables
         let mut outbuf = from_raw_parts_mut(data, len as _);
-        
+
         // rdrand function is thread safe
         write_rng_to_slice(&mut outbuf, rdrand)
     }
@@ -107,10 +106,10 @@ impl RngCallbackMut for Nrbg {
 }
 
 impl RngCallback for Nrbg {
-    unsafe extern "C" fn call(_: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int {
+    unsafe extern "C" fn call(_: *mut c_void, data: *mut c_uchar, len: usize) -> c_int {
         // outbuf data/len are stack variables
         let mut outbuf = from_raw_parts_mut(data, len as _);
-        
+
         // rdrand function is thread safe
         write_rng_to_slice(&mut outbuf, rdrand)
     }
@@ -119,4 +118,3 @@ impl RngCallback for Nrbg {
         ::core::ptr::null_mut()
     }
 }
-

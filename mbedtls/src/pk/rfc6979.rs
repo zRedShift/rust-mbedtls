@@ -10,7 +10,6 @@
 use crate::alloc_prelude::*;
 
 use mbedtls_sys::types::raw_types::{c_int, c_uchar, c_void};
-use mbedtls_sys::types::size_t;
 
 use crate::rng::{HmacDrbg, Random, RngCallbackMut};
 
@@ -119,7 +118,7 @@ impl RngCallbackMut for Rfc6979Rng {
     unsafe extern "C" fn call_mut(
         user_data: *mut c_void,
         data_ptr: *mut c_uchar,
-        len: size_t,
+        len: usize,
     ) -> c_int {
         let rng: &mut Rfc6979Rng = (user_data as *mut Rfc6979Rng).as_mut().unwrap();
         let slice = ::core::slice::from_raw_parts_mut(data_ptr, len as _);

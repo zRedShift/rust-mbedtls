@@ -11,7 +11,6 @@ use crate::alloc_prelude::*;
 
 use mbedtls_sys::types::raw_types::c_char;
 use mbedtls_sys::types::raw_types::{c_int, c_uchar};
-use mbedtls_sys::types::size_t;
 
 use crate::error::{Error, IntoResult, Result};
 
@@ -24,14 +23,14 @@ where
 
 pub fn alloc_vec_repeat<F>(mut f: F, data_at_end: bool) -> Result<Vec<u8>>
 where
-    F: FnMut(*mut c_uchar, size_t) -> c_int,
+    F: FnMut(*mut c_uchar, usize) -> c_int,
 {
     /*
     Avoid allocating more than a limited amount of memory. In certain conditions
     with malformed datastructures, mbedtls may return a too-small error regardless of how much
     buffer space is provided. This causes a loop which terminates with a out of memory panic.
     */
-    const MAX_VECTOR_ALLOCATION : usize = 4 * 1024 * 1024;
+    const MAX_VECTOR_ALLOCATION: usize = 4 * 1024 * 1024;
 
     let mut vec = Vec::with_capacity(2048 /* big because of bug in x509write */);
     loop {
@@ -68,7 +67,7 @@ where
 
 pub fn alloc_string_repeat<F>(mut f: F) -> Result<String>
 where
-    F: FnMut(*mut c_char, size_t) -> c_int,
+    F: FnMut(*mut c_char, usize) -> c_int,
 {
     let vec = alloc_vec_repeat(|b, s| f(b as _, s), false)?;
     String::from_utf8(vec).map_err(|e| e.utf8_error().into())
@@ -83,7 +82,7 @@ pub unsafe fn cstr_to_slice<'a>(ptr: *const c_char) -> &'a [u8] {
 pub unsafe fn cstr_to_slice<'a>(ptr: *const c_char) -> &'a [u8] {
     extern "C" {
         // this function is coming from the mbedtls C support lib
-        fn strlen(s: *const c_char) -> size_t;
+        fn strlen(s: *const c_char) -> usize;
     }
     ::core::slice::from_raw_parts(ptr as *const _, strlen(ptr))
 }

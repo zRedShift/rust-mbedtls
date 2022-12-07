@@ -9,6 +9,7 @@
 #![deny(warnings)]
 #![allow(clippy::all)]
 #![allow(unused_doc_comments)]
+#![feature(type_alias_impl_trait)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(any(feature = "std", feature = "no_std_deps")))]

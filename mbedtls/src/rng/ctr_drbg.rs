@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use mbedtls_sys::types::raw_types::{c_int, c_uchar, c_void};
-use mbedtls_sys::types::size_t;
 pub use mbedtls_sys::CTR_DRBG_RESEED_INTERVAL as RESEED_INTERVAL;
 use mbedtls_sys::*;
 
@@ -124,8 +123,8 @@ impl CtrDrbg {
         }
     }
 
-    getter!(entropy_len() -> size_t = .private_entropy_len);
-    setter!(set_entropy_len(len: size_t) = ctr_drbg_set_entropy_len);
+    getter!(entropy_len() -> usize = .private_entropy_len);
+    setter!(set_entropy_len(len: usize) = ctr_drbg_set_entropy_len);
     getter!(reseed_interval() -> c_int = .private_reseed_interval);
     setter!(set_reseed_interval(i: c_int) = ctr_drbg_set_reseed_interval);
 
@@ -157,7 +156,7 @@ impl CtrDrbg {
 
 impl RngCallbackMut for CtrDrbg {
     #[inline(always)]
-    unsafe extern "C" fn call_mut(user_data: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int
+    unsafe extern "C" fn call_mut(user_data: *mut c_void, data: *mut c_uchar, len: usize) -> c_int
     where
         Self: Sized,
     {
@@ -172,7 +171,7 @@ impl RngCallbackMut for CtrDrbg {
 
 impl RngCallback for CtrDrbg {
     #[inline(always)]
-    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: size_t) -> c_int
+    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: usize) -> c_int
     where
         Self: Sized,
     {

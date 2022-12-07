@@ -39,7 +39,6 @@ pub use self::ec::{EcGroupId, ECDSA_MAX_LEN};
 pub use crate::ecp::EcGroup;
 
 pub use dhparam::Dhm;
-use mbedtls_sys::sys::size_t;
 
 // SHA-256("Fortanix")[:4]
 const CUSTOM_PK_TYPE: pk_type_t = 0x8b205408 as pk_type_t;
@@ -305,7 +304,11 @@ impl Pk {
         Ok(ret)
     }
 
-    pub fn private_from_ec_components<F: Random>(rng: &mut F, mut curve: EcGroup, private_key: Mpi) -> Result<Pk> {
+    pub fn private_from_ec_components<F: Random>(
+        rng: &mut F,
+        mut curve: EcGroup,
+        private_key: Mpi,
+    ) -> Result<Pk> {
         let mut ret = Self::init();
         let curve_generator = curve.generator()?;
         let public_point = curve_generator.mul(rng, &mut curve, &private_key)?;
@@ -429,7 +432,7 @@ impl Pk {
 
     getter!(
         /// Key length in bits
-        len() -> size_t = fn pk_get_bitlen
+        len() -> usize = fn pk_get_bitlen
     );
     getter!(pk_type() -> Type = fn pk_get_type);
 

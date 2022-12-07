@@ -66,6 +66,7 @@ define!(
     #[c_ty(x509_crt)]
     #[repr(transparent)]
     struct Certificate;
+    const init: fn() -> Self = x509_crt_init;
     const drop: fn(&mut Self) = x509_crt_free;
     impl<'a> Into<ptr> {}
     impl<'a> UnsafeFrom<ptr> {}
@@ -102,9 +103,19 @@ fn x509_time_to_time(tm: &x509_time) -> Result<Time> {
 impl Certificate {
     pub fn from_der(der: &[u8]) -> Result<MbedtlsBox<Certificate>> {
         let mut cert = MbedtlsBox::<Certificate>::init()?;
-        unsafe { x509_crt_parse_der((&mut (*cert)).into(), der.as_ptr(), der.len() as _) }
-            .into_result()?;
+        cert.from_der_inner(der)?;
         Ok(cert)
+    }
+
+    pub fn from_der_unboxed<'a>(der: &[u8]) -> Result<Self> {
+        let mut cert = Self::init();
+        cert.from_der_inner(der)?;
+        Ok(cert)
+    }
+
+    fn from_der_inner(&mut self, der: &[u8]) -> Result<()> {
+        unsafe { x509_crt_parse_der(self.handle_mut(), der.as_ptr(), der.len() as _) }
+            .into_result_discard()
     }
 
     /// Input must be NULL-terminated
@@ -386,20 +397,13 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn subject_key(&mut self, key: &'a mut Pk) -> &mut Self {
-        unsafe { x509write_crt_set_subject_key(&mut self.inner, key.into()) };
+    pub fn subject_key(&mut self, key: &'a Pk) -> &mut Self {
+        unsafe { x509write_crt_set_subject_key(&mut self.inner, key.inner_ffi_mut()) };
         self
     }
 
-    pub fn issuer_key(&mut self, key: &'a mut Pk) -> &mut Self {
-        unsafe { x509write_crt_set_issuer_key(&mut self.inner, key.into()) };
-        self
-    }
-
-    pub fn subject_and_issuer_key(&mut self, key: &'a mut Pk) -> &mut Self {
-        let key = key.into();
-        unsafe { x509write_crt_set_subject_key(&mut self.inner, key) };
-        unsafe { x509write_crt_set_issuer_key(&mut self.inner, key) };
+    pub fn issuer_key(&mut self, key: &'a Pk) -> &mut Self {
+        unsafe { x509write_crt_set_issuer_key(&mut self.inner, key.inner_ffi_mut()) };
         self
     }
 
@@ -408,7 +412,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn key_usage(&mut self, usage: crate::x509::KeyUsage) -> Result<&mut Self> {
+    pub fn key_usage(&mut self, usage: x509::KeyUsage) -> Result<&mut Self> {
         unsafe { x509write_crt_set_key_usage(&mut self.inner, usage.bits()) }.into_result()?;
         Ok(self)
     }

@@ -57,3 +57,4 @@
 #include "mbedtls/x509_crl.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/x509_csr.h"
+#include "mbedtls/esp_debug.h"

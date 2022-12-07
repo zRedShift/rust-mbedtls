@@ -14,7 +14,6 @@ use std::sync::Arc;
 use core::slice::from_raw_parts;
 
 use mbedtls_sys::types::raw_types::*;
-use mbedtls_sys::types::size_t;
 use mbedtls_sys::*;
 
 use crate::alloc::List as MbedtlsList;
@@ -367,7 +366,7 @@ impl Config {
             closure: *mut c_void,
             ctx: *mut ssl_context,
             name: *const c_uchar,
-            name_len: size_t,
+            name_len: usize,
         ) -> c_int
         where
             F: Fn(&mut HandshakeContext, &[u8]) -> Result<()> + 'static,
