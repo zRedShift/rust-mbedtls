@@ -9,6 +9,9 @@
 use crate::error::{Error, IntoResult, Result};
 use mbedtls_sys::*;
 
+mod sha1;
+pub use sha1::Sha1;
+
 define!(
     #[c_ty(md_type_t)]
     #[derive(Copy, Clone, PartialEq, Debug)]
