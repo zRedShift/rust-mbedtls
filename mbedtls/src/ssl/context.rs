@@ -29,6 +29,7 @@ use crate::private::UnsafeFrom;
 use crate::ssl::config::{AuthMode, Config, Version};
 use crate::x509::{Certificate, Crl, VerifyError};
 
+#[cfg(feature = "async")]
 pub mod asynch;
 
 pub trait IoCallback {
