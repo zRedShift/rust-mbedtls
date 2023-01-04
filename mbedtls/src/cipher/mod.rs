@@ -17,7 +17,6 @@ pub trait Operation: Sized {
     fn is_encrypt() -> bool;
 }
 
-#[derive(Serialize, Deserialize)]
 pub enum Encryption {}
 impl Operation for Encryption {
     fn is_encrypt() -> bool {
@@ -25,7 +24,6 @@ impl Operation for Encryption {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 pub enum Decryption {}
 impl Operation for Decryption {
     fn is_encrypt() -> bool {

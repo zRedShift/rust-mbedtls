@@ -20,8 +20,7 @@ compile_error!("Either the `std` or `no_std_deps` feature needs to be enabled");
 extern crate alloc as rust_alloc;
 #[macro_use]
 extern crate bitflags;
-#[macro_use]
-extern crate serde_derive;
+
 // required explicitly to force inclusion at link time
 #[cfg(target_env = "sgx")]
 extern crate rs_libc;

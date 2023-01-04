@@ -20,10 +20,8 @@ keywords = ["MbedTLS","mbed","TLS","SSL","cryptography"]
 bitflags = "1"
 core_io = { version = "0.1", features = ["collections"], optional = true }
 spin = { version = "0.9.4", default-features = false, optional = true }
-serde = { version = "1.0.148", default-features = false, features = ["alloc"] }
-serde_derive = "1.0.148"
 byteorder = { version = "1.4.3", default-features = false }
-yasna = { version = "0.5.0", optional = true, features = ["num-bigint", "bit-vec"] }
+yasna = { version = "0.5.1", optional = true, features = ["num-bigint", "bit-vec"] }
 num-bigint = { version = "0.4.3", optional = true }
 bit-vec = { version = "0.6.3", optional = true }
 block-modes = { version = "0.9.1", optional = true }
@@ -35,7 +33,7 @@ rand_core = "0.6.4"
 embedded-io = "0.3.1"
 
 [target.x86_64-fortanix-unknown-sgx.dependencies]
-rs-libc = "0.2.0"
+rs-libc = "0.2.3"
 chrono = "0.4"
 
 [dependencies.mbedtls-sys-espidf]
@@ -45,11 +43,11 @@ features = ["custom_printf", "trusted_cert_callback", "threading"]
 path = "../mbedtls-sys-espidf"
 
 [dev-dependencies]
-libc = "0.2.0"
+libc = "0.2.139"
 rand = "0.8.5"
 serde_cbor = "0.6"
 hex = "0.3"
-matches = "0.1.8"
+matches = "0.1.9"
 hyper = { version = "0.10.16", default-features = false }
 
 [build-dependencies]
@@ -58,9 +56,9 @@ cc = "1.0"
 [features]
 # Features are documented in the README
 default = ["std", "time"]
-std = ["byteorder/std", "mbedtls-sys-espidf/std", "serde/std", "yasna"]
+std = ["byteorder/std", "mbedtls-sys-espidf/std", "yasna"]
 debug = ["mbedtls-sys-espidf/debug"]
-no_std_deps = ["core_io", "spin", "serde/alloc"]
+no_std_deps = ["core_io", "spin"]
 mpi_force_c_code = ["mbedtls-sys-espidf/mpi_force_c_code"]
 rdrand = []
 time = ["mbedtls-sys-espidf/time"]

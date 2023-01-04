@@ -10,8 +10,6 @@ use mbedtls_sys::*;
 
 use crate::error::{Error, IntoResult, Result};
 
-mod serde;
-
 define!(
     #[c_ty(cipher_id_t)]
     enum CipherId {
@@ -260,7 +258,7 @@ impl From<CipherType> for CipherId {
 
 define!(
     #[c_ty(cipher_padding_t)]
-    #[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     enum CipherPadding {
         Pkcs7 = PADDING_PKCS7,
         IsoIec78164 = PADDING_ONE_AND_ZEROS,

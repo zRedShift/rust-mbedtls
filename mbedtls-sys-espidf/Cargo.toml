@@ -16,7 +16,7 @@ documentation = "https://docs.rs/mbedtls-sys-auto/"
 name = "mbedtls_sys"
 
 [dependencies]
-esp-idf-sys = "0.31.11"
+esp-idf-sys = "0.32.1"
 
 [features]
 # If you use mbedtls-sys in a no_std configuration, you need to provide your
