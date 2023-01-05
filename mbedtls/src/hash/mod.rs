@@ -9,8 +9,15 @@
 use crate::error::{Error, IntoResult, Result};
 use mbedtls_sys::*;
 
-mod sha1;
-pub use sha1::Sha1;
+cfg_if::cfg_if! {
+    if #[cfg(esp_idf_mbedtls_hardware_sha)] {
+        mod sha1;
+        pub use sha1::Sha1;
+
+        mod sha256;
+        pub use sha256::Sha256;
+    }
+}
 
 define!(
     #[c_ty(md_type_t)]

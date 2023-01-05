@@ -953,7 +953,7 @@ impl Pk {
         }
     }
 
-    pub fn verify(&mut self, md: MdType, hash: &[u8], sig: &[u8]) -> Result<()> {
+    pub fn verify(&self, md: MdType, hash: &[u8], sig: &[u8]) -> Result<()> {
         // If hash or sig are allowed with size 0 (&[]) then mbedtls will attempt to auto-detect size and cause an invalid write.
         if hash.len() == 0 || sig.len() == 0 {
             return Err(Error::PkBadInputData);
@@ -961,7 +961,7 @@ impl Pk {
 
         unsafe {
             pk_verify(
-                &mut self.inner,
+                self.inner_ffi_mut(),
                 md.into(),
                 hash.as_ptr(),
                 hash.len() as _,
