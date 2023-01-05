@@ -1031,10 +1031,10 @@ impl Pk {
         })
     }
 
-    pub fn write_public_der<'buf>(&mut self, buf: &'buf mut [u8]) -> Result<Option<&'buf [u8]>> {
-        match unsafe {
-            pk_write_pubkey_der(&mut self.inner, buf.as_mut_ptr(), buf.len() as _).into_result()
-        } {
+    pub fn write_public_der<'buf>(&self, buf: &'buf mut [u8]) -> Result<Option<&'buf [u8]>> {
+        match unsafe { pk_write_pubkey_der(self.inner_ffi_mut(), buf.as_mut_ptr(), buf.len() as _) }
+            .into_result()
+        {
             Err(Error::Asn1BufTooSmall) => Ok(None),
             Err(e) => Err(e),
             Ok(n) => Ok(Some(&buf[buf.len() - (n as usize)..])),
