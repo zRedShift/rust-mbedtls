@@ -251,16 +251,9 @@ pub fn pbkdf2_hmac(
     iterations: u32,
     key: &mut [u8],
 ) -> Result<()> {
-    let md: MdInfo = match md.into() {
-        Some(md) => md,
-        None => return Err(Error::MdBadInputData),
-    };
-
     unsafe {
-        let mut ctx = Md::init();
-        md_setup((&mut ctx).into(), md.into(), 1).into_result()?;
-        pkcs5_pbkdf2_hmac(
-            (&mut ctx).into(),
+        pkcs5_pbkdf2_hmac_ext(
+            md.into(),
             password.as_ptr(),
             password.len() as _,
             salt.as_ptr(),
