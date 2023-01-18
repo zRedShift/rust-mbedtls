@@ -86,23 +86,14 @@ impl Ecdh {
         }
 
         let mut ret = Self::init();
+        #[cfg(esp_idf_mbedtls_ecdh_legacy_context)]
+        let inner = &mut ret.inner;
+        #[cfg(not(esp_idf_mbedtls_ecdh_legacy_context))]
+        let inner = &mut ret.inner.private_ctx.private_mbed_ecdh;
         unsafe {
-            // let ret = ret.inner.private_ctx.private_mbed_ecdh;
-            ecp_group_copy(
-                &mut ret.inner.private_ctx.private_mbed_ecdh.private_grp,
-                &private.inner.private_grp,
-            )
-            .into_result()?;
-            mpi_copy(
-                &mut ret.inner.private_ctx.private_mbed_ecdh.private_d,
-                &private.inner.private_d,
-            )
-            .into_result()?;
-            ecp_copy(
-                &mut ret.inner.private_ctx.private_mbed_ecdh.private_Qp,
-                &public.inner.private_Q,
-            )
-            .into_result()?;
+            ecp_group_copy(&mut inner.private_grp, &private.inner.private_grp).into_result()?;
+            mpi_copy(&mut inner.private_d, &private.inner.private_d).into_result()?;
+            ecp_copy(&mut inner.private_Qp, &public.inner.private_Q).into_result()?;
         }
         Ok(ret)
     }

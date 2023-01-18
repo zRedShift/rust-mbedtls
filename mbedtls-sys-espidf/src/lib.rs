@@ -751,6 +751,7 @@ pub use sys::mbedtls_des_context as des_context;
 pub use sys::mbedtls_dhm_context as dhm_context;
 pub use sys::mbedtls_dtls_srtp_info_t as dtls_srtp_info_t;
 pub use sys::mbedtls_ecdh_context as ecdh_context;
+#[cfg(not(esp_idf_mbedtls_ecdh_legacy_context))]
 pub use sys::mbedtls_ecdh_context_mbed as ecdh_context_mbed;
 pub use sys::mbedtls_ecjpake_context as ecjpake_context;
 pub use sys::mbedtls_ecp_curve_info as ecp_curve_info;
@@ -827,6 +828,7 @@ pub use sys::mbedtls_debug_ecdh_attr as debug_ecdh_attr;
 pub use sys::mbedtls_dhm_parameter as dhm_parameter;
 pub use sys::mbedtls_dtls_srtp_info as dtls_srtp_info;
 pub use sys::mbedtls_ecdh_side as ecdh_side;
+#[cfg(not(esp_idf_mbedtls_ecdh_legacy_context))]
 pub use sys::mbedtls_ecdh_variant as ecdh_variant;
 pub use sys::mbedtls_ecdsa_context as ecdsa_context;
 pub use sys::mbedtls_ecdsa_restart_ctx as ecdsa_restart_ctx;
@@ -1013,7 +1015,9 @@ pub use sys::mbedtls_dhm_parameter_MBEDTLS_DHM_PARAM_P as DHM_PARAM_P;
 pub use sys::mbedtls_dhm_parameter_MBEDTLS_DHM_PARAM_X as DHM_PARAM_X;
 pub use sys::mbedtls_ecdh_side_MBEDTLS_ECDH_OURS as ECDH_OURS;
 pub use sys::mbedtls_ecdh_side_MBEDTLS_ECDH_THEIRS as ECDH_THEIRS;
+#[cfg(not(esp_idf_mbedtls_ecdh_legacy_context))]
 pub use sys::mbedtls_ecdh_variant_MBEDTLS_ECDH_VARIANT_MBEDTLS_2_0 as ECDH_VARIANT_MBEDTLS_2_0;
+#[cfg(not(esp_idf_mbedtls_ecdh_legacy_context))]
 pub use sys::mbedtls_ecdh_variant_MBEDTLS_ECDH_VARIANT_NONE as ECDH_VARIANT_NONE;
 pub use sys::mbedtls_ecjpake_role_MBEDTLS_ECJPAKE_CLIENT as ECJPAKE_CLIENT;
 pub use sys::mbedtls_ecjpake_role_MBEDTLS_ECJPAKE_SERVER as ECJPAKE_SERVER;

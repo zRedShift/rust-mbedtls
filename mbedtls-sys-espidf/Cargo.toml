@@ -18,6 +18,10 @@ name = "mbedtls_sys"
 [dependencies]
 esp-idf-sys = "0.32.1"
 
+[build-dependencies]
+anyhow = "1.0.68"
+embuild = "0.31.0"
+
 [features]
 # If you use mbedtls-sys in a no_std configuration, you need to provide your
 # own versions of the following functions:
