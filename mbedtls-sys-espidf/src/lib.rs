@@ -16,7 +16,10 @@ pub use sys::mbedtls_aria_self_test as aria_self_test;
 pub use sys::mbedtls_aria_setkey_dec as aria_setkey_dec;
 pub use sys::mbedtls_aria_setkey_enc as aria_setkey_enc;
 pub use sys::mbedtls_asn1_find_named_data as asn1_find_named_data;
+#[cfg(esp_idf_version_minor = "0")]
+pub use sys::mbedtls_asn1_free_named_data as asn1_free_named_data;
 pub use sys::mbedtls_asn1_free_named_data_list as asn1_free_named_data_list;
+#[cfg(not(esp_idf_version_minor = "0"))]
 pub use sys::mbedtls_asn1_free_named_data_list_shallow as asn1_free_named_data_list_shallow;
 pub use sys::mbedtls_asn1_get_alg as asn1_get_alg;
 pub use sys::mbedtls_asn1_get_alg_null as asn1_get_alg_null;
@@ -445,6 +448,9 @@ pub use sys::mbedtls_pk_write_pubkey_pem as pk_write_pubkey_pem;
 pub use sys::mbedtls_pkcs12_derivation as pkcs12_derivation;
 pub use sys::mbedtls_pkcs12_pbe as pkcs12_pbe;
 pub use sys::mbedtls_pkcs5_pbes2 as pkcs5_pbes2;
+#[cfg(esp_idf_version_minor = "0")]
+pub use sys::mbedtls_pkcs5_pbkdf2_hmac as pkcs5_pbkdf2_hmac;
+#[cfg(not(esp_idf_version_minor = "0"))]
 pub use sys::mbedtls_pkcs5_pbkdf2_hmac_ext as pkcs5_pbkdf2_hmac_ext;
 pub use sys::mbedtls_pkcs5_self_test as pkcs5_self_test;
 pub use sys::mbedtls_platform_gmtime_r as platform_gmtime_r;
@@ -1111,7 +1117,11 @@ pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_HELLO as SSL_SERVER_HELLO;
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_HELLO_DONE as SSL_SERVER_HELLO_DONE;
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_HELLO_VERIFY_REQUEST_SENT as SSL_SERVER_HELLO_VERIFY_REQUEST_SENT;
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_KEY_EXCHANGE as SSL_SERVER_KEY_EXCHANGE;
+#[cfg(esp_idf_version_minor = "0")]
+pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_NEW_SESSION_TICKET as SSL_SERVER_NEW_SESSION_TICKET;
+#[cfg(not(esp_idf_version_minor = "0"))]
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_TLS1_3_NEW_SESSION_TICKET as SSL_SERVER_NEW_SESSION_TICKETSSL_TLS1_3_NEW_SESSION_TICKET;
+#[cfg(not(esp_idf_version_minor = "0"))]
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_TLS1_3_NEW_SESSION_TICKET_FLUSH as SSL_SERVER_NEW_SESSION_TICKETSSL_TLS1_3_NEW_SESSION_TICKET_FLUSH;
 pub use sys::mbedtls_tls_prf_types_MBEDTLS_SSL_HKDF_EXPAND_SHA256 as SSL_HKDF_EXPAND_SHA256;
 pub use sys::mbedtls_tls_prf_types_MBEDTLS_SSL_HKDF_EXPAND_SHA384 as SSL_HKDF_EXPAND_SHA384;

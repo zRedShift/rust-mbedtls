@@ -251,20 +251,34 @@ pub fn pbkdf2_hmac(
     iterations: u32,
     key: &mut [u8],
 ) -> Result<()> {
-    unsafe {
-        pkcs5_pbkdf2_hmac_ext(
-            md.into(),
-            password.as_ptr(),
-            password.len() as _,
-            salt.as_ptr(),
-            salt.len() as _,
-            iterations,
-            key.len() as u32,
-            key.as_mut_ptr(),
-        )
-        .into_result()?;
-        Ok(())
+    macro_rules! hmac {
+        ($hmac:ident, $ctx:expr) => {
+            $hmac(
+                $ctx.into(),
+                password.as_ptr(),
+                password.len() as _,
+                salt.as_ptr(),
+                salt.len() as _,
+                iterations,
+                key.len() as u32,
+                key.as_mut_ptr(),
+            )
+        };
     }
+
+    #[cfg(esp_idf_version_minor = "0")]
+    unsafe {
+        let md = Into::<Option<MdInfo>>::into(md).ok_or(Error::MdBadInputData)?;
+        let mut ctx = Md::init();
+        md_setup((&mut ctx).into(), md.into(), 1).into_result()?;
+        hmac!(pkcs5_pbkdf2_hmac, (&mut ctx));
+    }
+    #[cfg(not(esp_idf_version_minor = "0"))]
+    unsafe {
+        hmac!(pkcs5_pbkdf2_hmac_ext, md)
+    };
+
+    Ok(())
 }
 
 pub fn pbkdf_pkcs12(
