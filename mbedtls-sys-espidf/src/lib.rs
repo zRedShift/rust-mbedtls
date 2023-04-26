@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[macro_use]
+extern crate cfg_if;
+
 pub mod types;
 
 pub use esp_idf_sys as sys;
@@ -264,15 +267,19 @@ pub use sys::mbedtls_entropy_update_manual as entropy_update_manual;
 pub use sys::mbedtls_entropy_update_seed_file as entropy_update_seed_file;
 pub use sys::mbedtls_entropy_write_seed_file as entropy_write_seed_file;
 // pub use sys::mbedtls_free as free;
-pub use sys::esp_aes_gcm_auth_decrypt as gcm_auth_decrypt;
-pub use sys::esp_aes_gcm_crypt_and_tag as gcm_crypt_and_tag;
-pub use sys::esp_aes_gcm_finish as gcm_finish;
-pub use sys::esp_aes_gcm_free as gcm_free;
-pub use sys::esp_aes_gcm_init as gcm_init;
-pub use sys::esp_aes_gcm_setkey as gcm_setkey;
-pub use sys::esp_aes_gcm_starts as gcm_starts;
-pub use sys::esp_aes_gcm_update as gcm_update;
-pub use sys::esp_aes_gcm_update_ad as gcm_update_ad;
+cfg_if::cfg_if! {
+    if #[cfg(esp_idf_mbedtls_hardware_sha)] {
+        pub use sys::esp_aes_gcm_auth_decrypt as gcm_auth_decrypt;
+        pub use sys::esp_aes_gcm_crypt_and_tag as gcm_crypt_and_tag;
+        pub use sys::esp_aes_gcm_finish as gcm_finish;
+        pub use sys::esp_aes_gcm_free as gcm_free;
+        pub use sys::esp_aes_gcm_init as gcm_init;
+        pub use sys::esp_aes_gcm_setkey as gcm_setkey;
+        pub use sys::esp_aes_gcm_starts as gcm_starts;
+        pub use sys::esp_aes_gcm_update as gcm_update;
+        pub use sys::esp_aes_gcm_update_ad as gcm_update_ad;
+    }
+}
 pub use sys::mbedtls_gcm_self_test as gcm_self_test;
 pub use sys::mbedtls_high_level_strerr as high_level_strerr;
 pub use sys::mbedtls_hkdf as hkdf;
@@ -2349,44 +2356,52 @@ pub use sys::MBEDTLS_ERR_X509_UNKNOWN_VERSION as ERR_X509_UNKNOWN_VERSION;
 
 pub use sys::esp_aes_128_decrypt_t as aes_128_decrypt_t;
 pub use sys::esp_aes_128_encrypt_t as aes_128_encrypt_t;
-pub use sys::esp_aes_acquire_hardware as aes_acquire_hardware;
-pub use sys::esp_aes_context as aes_context;
-pub use sys::esp_aes_crypt_cbc as aes_crypt_cbc;
-pub use sys::esp_aes_crypt_cfb128 as aes_crypt_cfb128;
-pub use sys::esp_aes_crypt_cfb8 as aes_crypt_cfb8;
-pub use sys::esp_aes_crypt_ctr as aes_crypt_ctr;
-pub use sys::esp_aes_crypt_ecb as aes_crypt_ecb;
-pub use sys::esp_aes_crypt_ofb as aes_crypt_ofb;
-pub use sys::esp_aes_crypt_xts as aes_crypt_xts;
-pub use sys::esp_aes_decrypt as aes_decrypt;
+cfg_if::cfg_if! {
+    if #[cfg(esp_idf_mbedtls_hardware_aes)] {
+        pub use sys::esp_aes_acquire_hardware as aes_acquire_hardware;
+        pub use sys::esp_aes_context as aes_context;
+        pub use sys::esp_aes_crypt_cbc as aes_crypt_cbc;
+        pub use sys::esp_aes_crypt_cfb128 as aes_crypt_cfb128;
+        pub use sys::esp_aes_crypt_cfb8 as aes_crypt_cfb8;
+        pub use sys::esp_aes_crypt_ctr as aes_crypt_ctr;
+        pub use sys::esp_aes_crypt_ecb as aes_crypt_ecb;
+        pub use sys::esp_aes_crypt_ofb as aes_crypt_ofb;
+        pub use sys::esp_aes_crypt_xts as aes_crypt_xts;
+        pub use sys::esp_aes_decrypt as aes_decrypt;
+    }
+}
 pub use sys::esp_aes_decrypt_deinit_t as aes_decrypt_deinit_t;
 pub use sys::esp_aes_decrypt_init_t as aes_decrypt_init_t;
 pub use sys::esp_aes_decrypt_t as aes_decrypt_t;
-pub use sys::esp_aes_encrypt as aes_encrypt;
 pub use sys::esp_aes_encrypt_deinit_t as aes_encrypt_deinit_t;
 pub use sys::esp_aes_encrypt_init_t as aes_encrypt_init_t;
 pub use sys::esp_aes_encrypt_t as aes_encrypt_t;
-pub use sys::esp_aes_free as aes_free;
 pub use sys::esp_aes_gmac_t as aes_gmac_t;
-pub use sys::esp_aes_init as aes_init;
-pub use sys::esp_aes_mode_t as aes_mode_t;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CBC as AES_BLOCK_MODE_CBC;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CFB128 as AES_BLOCK_MODE_CFB128;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CFB8 as AES_BLOCK_MODE_CFB8;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CTR as AES_BLOCK_MODE_CTR;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_ECB as AES_BLOCK_MODE_ECB;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_GCM as AES_BLOCK_MODE_GCM;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_MAX as AES_BLOCK_MODE_MAX;
-pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_OFB as AES_BLOCK_MODE_OFB;
-pub use sys::esp_aes_release_hardware as aes_release_hardware;
-pub use sys::esp_aes_setkey as aes_setkey;
+cfg_if::cfg_if! {
+    if #[cfg(esp_idf_mbedtls_hardware_aes)] {
+        pub use sys::esp_aes_encrypt as aes_encrypt;
+        pub use sys::esp_aes_free as aes_free;
+        pub use sys::esp_aes_init as aes_init;
+        pub use sys::esp_aes_mode_t as aes_mode_t;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CBC as AES_BLOCK_MODE_CBC;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CFB128 as AES_BLOCK_MODE_CFB128;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CFB8 as AES_BLOCK_MODE_CFB8;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_CTR as AES_BLOCK_MODE_CTR;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_ECB as AES_BLOCK_MODE_ECB;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_GCM as AES_BLOCK_MODE_GCM;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_MAX as AES_BLOCK_MODE_MAX;
+        pub use sys::esp_aes_mode_t_ESP_AES_BLOCK_MODE_OFB as AES_BLOCK_MODE_OFB;
+        pub use sys::esp_aes_release_hardware as aes_release_hardware;
+        pub use sys::esp_aes_setkey as aes_setkey;
+        pub use sys::esp_aes_xts_context as aes_xts_context;
+        pub use sys::esp_aes_xts_free as aes_xts_free;
+        pub use sys::esp_aes_xts_init as aes_xts_init;
+        pub use sys::esp_aes_xts_setkey_dec as aes_xts_setkey_dec;
+        pub use sys::esp_aes_xts_setkey_enc as aes_xts_setkey_enc;
+    }
+}
 pub use sys::esp_aes_unwrap_t as aes_unwrap_t;
 pub use sys::esp_aes_wrap_t as aes_wrap_t;
-pub use sys::esp_aes_xts_context as aes_xts_context;
-pub use sys::esp_aes_xts_free as aes_xts_free;
-pub use sys::esp_aes_xts_init as aes_xts_init;
-pub use sys::esp_aes_xts_setkey_dec as aes_xts_setkey_dec;
-pub use sys::esp_aes_xts_setkey_enc as aes_xts_setkey_enc;
 pub use sys::esp_mbedtls_mem_calloc as calloc;
 pub use sys::esp_mbedtls_mem_free as free;
 pub use sys::esp_md5_vector_t as md5_vector_t;

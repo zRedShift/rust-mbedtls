@@ -826,6 +826,7 @@ name = "mbedtls-sys-espidf"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cfg-if",
  "embuild",
  "esp-idf-sys",
 ]
