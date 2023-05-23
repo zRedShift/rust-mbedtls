@@ -19,7 +19,7 @@ keywords = ["MbedTLS","mbed","TLS","SSL","cryptography"]
 [dependencies]
 bitflags = "1"
 core_io = { version = "0.1", features = ["collections"], optional = true }
-esp-idf-sys = "0.32.1"
+esp-idf-sys = "0.33.0"
 spin = { version = "0.9.4", default-features = false, optional = true }
 byteorder = { version = "1.4.3", default-features = false }
 yasna = { version = "0.5.1", optional = true, features = ["num-bigint", "bit-vec"] }
