@@ -462,8 +462,17 @@ impl<'a> Builder<'a> {
     }
 
     pub fn serial(&mut self, serial: &[u8]) -> Result<&mut Self> {
-        let serial = crate::bignum::Mpi::from_binary(serial)?;
-        unsafe { x509write_crt_set_serial(&mut self.inner, (&serial).into()) }.into_result()?;
+        #[cfg(not(esp_idf_version_full = "5.1.0"))]
+        unsafe {
+            let serial = crate::bignum::Mpi::from_binary(serial)?;
+            x509write_crt_set_serial(&mut self.inner, (&serial).into())
+        }
+        .into_result()?;
+        #[cfg(esp_idf_version_full = "5.1.0")]
+        unsafe {
+            x509write_crt_set_serial_raw(&mut self.inner, serial.as_ptr().cast_mut(), serial.len())
+        }
+        .into_result()?;
         Ok(self)
     }
 

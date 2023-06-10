@@ -19,7 +19,7 @@ pub use sys::mbedtls_aria_self_test as aria_self_test;
 pub use sys::mbedtls_aria_setkey_dec as aria_setkey_dec;
 pub use sys::mbedtls_aria_setkey_enc as aria_setkey_enc;
 pub use sys::mbedtls_asn1_find_named_data as asn1_find_named_data;
-#[cfg(not(esp_idf_version_full = "5.0.2"))]
+#[cfg(not(any(esp_idf_version_full = "5.0.2", esp_idf_version_full = "5.1.0")))]
 pub use sys::mbedtls_asn1_free_named_data as asn1_free_named_data;
 pub use sys::mbedtls_asn1_free_named_data_list as asn1_free_named_data_list;
 #[cfg(not(esp_idf_version_minor = "0"))]
@@ -325,6 +325,7 @@ pub use sys::mbedtls_md_info_from_string as md_info_from_string;
 pub use sys::mbedtls_md_info_from_type as md_info_from_type;
 pub use sys::mbedtls_md_init as md_init;
 pub use sys::mbedtls_md_list as md_list;
+#[cfg(not(esp_idf_version_full = "5.1.0"))]
 pub use sys::mbedtls_md_process as md_process;
 pub use sys::mbedtls_md_setup as md_setup;
 pub use sys::mbedtls_md_starts as md_starts;
@@ -455,7 +456,7 @@ pub use sys::mbedtls_pk_write_pubkey_pem as pk_write_pubkey_pem;
 pub use sys::mbedtls_pkcs12_derivation as pkcs12_derivation;
 pub use sys::mbedtls_pkcs12_pbe as pkcs12_pbe;
 pub use sys::mbedtls_pkcs5_pbes2 as pkcs5_pbes2;
-#[cfg(not(esp_idf_version_full = "5.0.2"))]
+#[cfg(not(any(esp_idf_version_full = "5.0.2", esp_idf_version_full = "5.1.0")))]
 pub use sys::mbedtls_pkcs5_pbkdf2_hmac as pkcs5_pbkdf2_hmac;
 #[cfg(not(esp_idf_version_minor = "0"))]
 pub use sys::mbedtls_pkcs5_pbkdf2_hmac_ext as pkcs5_pbkdf2_hmac_ext;
@@ -728,7 +729,10 @@ pub use sys::mbedtls_x509write_crt_set_issuer_name as x509write_crt_set_issuer_n
 pub use sys::mbedtls_x509write_crt_set_key_usage as x509write_crt_set_key_usage;
 pub use sys::mbedtls_x509write_crt_set_md_alg as x509write_crt_set_md_alg;
 pub use sys::mbedtls_x509write_crt_set_ns_cert_type as x509write_crt_set_ns_cert_type;
+#[cfg(not(esp_idf_version_full = "5.1.0"))]
 pub use sys::mbedtls_x509write_crt_set_serial as x509write_crt_set_serial;
+#[cfg(esp_idf_version_full = "5.1.0")]
+pub use sys::mbedtls_x509write_crt_set_serial_raw as x509write_crt_set_serial_raw;
 pub use sys::mbedtls_x509write_crt_set_subject_key as x509write_crt_set_subject_key;
 pub use sys::mbedtls_x509write_crt_set_subject_key_identifier as x509write_crt_set_subject_key_identifier;
 pub use sys::mbedtls_x509write_crt_set_subject_name as x509write_crt_set_subject_name;
@@ -1124,7 +1128,7 @@ pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_HELLO as SSL_SERVER_HELLO;
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_HELLO_DONE as SSL_SERVER_HELLO_DONE;
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_HELLO_VERIFY_REQUEST_SENT as SSL_SERVER_HELLO_VERIFY_REQUEST_SENT;
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_KEY_EXCHANGE as SSL_SERVER_KEY_EXCHANGE;
-#[cfg(not(esp_idf_version_full = "5.0.2"))]
+#[cfg(not(any(esp_idf_version_full = "5.0.2", esp_idf_version_full = "5.1.0")))]
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_SERVER_NEW_SESSION_TICKET as SSL_SERVER_NEW_SESSION_TICKET;
 #[cfg(not(esp_idf_version_minor = "0"))]
 pub use sys::mbedtls_ssl_states_MBEDTLS_SSL_TLS1_3_NEW_SESSION_TICKET as SSL_SERVER_NEW_SESSION_TICKETSSL_TLS1_3_NEW_SESSION_TICKET;

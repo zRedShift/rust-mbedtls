@@ -1,6 +1,5 @@
 use crate::rng::{EspRandom, RngCallback};
 use crate::ssl::{config::*, context::*};
-use ErrorKind::*;
 
 define!(
     #[c_ty(ssl_config)]
