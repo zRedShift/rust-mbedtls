@@ -458,7 +458,7 @@ pub use sys::mbedtls_pkcs12_pbe as pkcs12_pbe;
 pub use sys::mbedtls_pkcs5_pbes2 as pkcs5_pbes2;
 #[cfg(not(any(esp_idf_version_full = "5.0.2", esp_idf_version_full = "5.1.0")))]
 pub use sys::mbedtls_pkcs5_pbkdf2_hmac as pkcs5_pbkdf2_hmac;
-#[cfg(not(esp_idf_version_minor = "0"))]
+#[cfg(any(esp_idf_version_full = "5.0.2", esp_idf_version_full = "5.1.0"))]
 pub use sys::mbedtls_pkcs5_pbkdf2_hmac_ext as pkcs5_pbkdf2_hmac_ext;
 pub use sys::mbedtls_pkcs5_self_test as pkcs5_self_test;
 pub use sys::mbedtls_platform_gmtime_r as platform_gmtime_r;

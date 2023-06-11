@@ -76,7 +76,18 @@ impl<'a> Context<'a> {
         recv: ssl_recv_t,
         timeout: ssl_recv_timeout_t,
     ) {
-        ssl_set_bio(self.handle_mut(), arg, send, recv, timeout);
+        ssl_set_bio(self.handle_mut(), arg, send, recv, timeout)
+    }
+
+    /// # Safety
+    /// TODO
+    pub unsafe fn set_timer_cb(
+        &mut self,
+        timer: *mut c_void,
+        set: ssl_set_timer_t,
+        get: ssl_get_timer_t,
+    ) {
+        ssl_set_timer_cb(self.handle_mut(), timer, set, get)
     }
 }
 
