@@ -13,6 +13,20 @@ define!(
 
 unsafe impl<'a> Sync for Config<'a> {}
 
+const MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_80: u16 = 0x0001;
+const MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_32: u16 = 0x0002;
+const MBEDTLS_TLS_SRTP_NULL_HMAC_SHA1_80: u16 = 0x0005;
+const MBEDTLS_TLS_SRTP_NULL_HMAC_SHA1_32: u16 = 0x0006;
+const MBEDTLS_TLS_SRTP_UNSET: u16 = 0x0000;
+
+const DEFAULT_SRTP_PROFILES: [ssl_srtp_profile; 5] = [
+    MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_80,
+    MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_32,
+    MBEDTLS_TLS_SRTP_NULL_HMAC_SHA1_80,
+    MBEDTLS_TLS_SRTP_NULL_HMAC_SHA1_32,
+    MBEDTLS_TLS_SRTP_UNSET,
+];
+
 impl<'a> Config<'a> {
     pub fn new(e: Endpoint, t: Transport, p: Preset) -> Self {
         let mut config = Self::init();
@@ -32,6 +46,14 @@ impl<'a> Config<'a> {
                 own_pk.inner_ffi_mut(),
             )
             .into_result_discard()
+        }
+    }
+
+    /// Required for SRTP negotiation
+    pub fn set_default_srtp_profiles(&mut self) -> Result<()> {
+        unsafe {
+            ssl_conf_dtls_srtp_protection_profiles(self.into(), DEFAULT_SRTP_PROFILES.as_ptr())
+                .into_result_discard()
         }
     }
 
@@ -67,6 +89,10 @@ impl<'a> Context<'a> {
         unsafe { ssl_close_notify(self.handle_mut()) }.into_result()
     }
 
+    pub fn handshake(&mut self) -> Result<c_int> {
+        unsafe { ssl_handshake(self.handle_mut()) }.into_result()
+    }
+
     /// # Safety
     /// TODO
     pub unsafe fn set_bio(
@@ -88,6 +114,14 @@ impl<'a> Context<'a> {
         get: ssl_get_timer_t,
     ) {
         ssl_set_timer_cb(self.handle_mut(), timer, set, get)
+    }
+
+    pub unsafe fn set_key_export_cb(&mut self, cb: ssl_export_keys_t, keys: *mut c_void) {
+        ssl_set_export_keys_cb(self.handle_mut(), cb, keys)
+    }
+
+    pub unsafe fn get_dtls_srtp_negotiation_result(&self, info: *mut dtls_srtp_info) {
+        ssl_get_dtls_srtp_negotiation_result(self.handle(), info)
     }
 }
 
