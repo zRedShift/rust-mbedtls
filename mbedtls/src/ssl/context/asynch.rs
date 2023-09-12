@@ -57,6 +57,11 @@ impl<'a> Config<'a> {
         }
     }
 
+    pub fn set_ciphersuites(&mut self, ciphersuites: &[i32]) -> Result<()> {
+        unsafe { ssl_conf_ciphersuites(self.into(), ciphersuites.as_ptr()) }
+        Ok(())
+    }
+
     setter!(set_authmode(am: AuthMode) = ssl_conf_authmode);
 }
 
