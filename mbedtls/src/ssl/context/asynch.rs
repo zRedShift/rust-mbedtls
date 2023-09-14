@@ -1,17 +1,20 @@
 use crate::rng::{EspRandom, RngCallback};
 use crate::ssl::{config::*, context::*};
+use std::sync::Arc;
 
 define!(
     #[c_ty(ssl_config)]
-    #[repr(transparent)]
-    struct Config<'a>;
-    const init: fn() -> Self = ssl_config_init;
+    #[repr(C)]
+    struct Config {
+        own_cert: Vec<Arc<Certificate>>,
+        own_pk: Vec<Arc<Pk>>,
+    };
     const drop: fn(&mut Self) = ssl_config_free;
     impl<'b> Into<ptr> {}
     impl<'b> UnsafeFrom<ptr> {}
 );
 
-unsafe impl<'a> Sync for Config<'a> {}
+unsafe impl Sync for Config {}
 
 const MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_80: u16 = 0x0001;
 const MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_32: u16 = 0x0002;
@@ -27,26 +30,35 @@ const DEFAULT_SRTP_PROFILES: [ssl_srtp_profile; 5] = [
     MBEDTLS_TLS_SRTP_UNSET,
 ];
 
-impl<'a> Config<'a> {
+impl Config {
     pub fn new(e: Endpoint, t: Transport, p: Preset) -> Self {
-        let mut config = Self::init();
-        let conf = config.handle_mut();
+        let mut inner = ssl_config::default();
         unsafe {
-            ssl_config_defaults(conf, e as c_int, t as c_int, p as c_int);
-            ssl_conf_rng(conf, Some(EspRandom::call), EspRandom.data_ptr());
+            ssl_config_init(&mut inner);
+            ssl_config_defaults(&mut inner, e as c_int, t as c_int, p as c_int);
+            ssl_conf_rng(&mut inner, Some(EspRandom::call), EspRandom.data_ptr());
         };
-        config
+
+        Self {
+            inner,
+            own_cert: vec![],
+            own_pk: vec![],
+        }
     }
 
-    pub fn push_cert(&mut self, own_cert: &'a Certificate, own_pk: &'a Pk) -> Result<()> {
+    pub fn push_cert(&mut self, own_cert: &Arc<Certificate>, own_pk: &Arc<Pk>) -> Result<()> {
         unsafe {
             ssl_conf_own_cert(
                 self.into(),
                 own_cert.inner_ffi_mut(),
                 own_pk.inner_ffi_mut(),
             )
-            .into_result_discard()
+            .into_result_discard()?;
         }
+        self.own_cert.push(Arc::clone(own_cert));
+        self.own_pk.push(Arc::clone(own_pk));
+
+        Ok(())
     }
 
     /// Required for SRTP negotiation
@@ -67,19 +79,25 @@ impl<'a> Config<'a> {
 
 define!(
     #[c_ty(ssl_context)]
-    #[repr(transparent)]
-    struct Context<'a>;
-    const init: fn() -> Self = ssl_init;
+    #[repr(C)]
+    struct Context {
+        config: Arc<Config>,
+    };
     const drop: fn(&mut Self) = ssl_free;
     impl<'b> Into<ptr> {}
     impl<'b> UnsafeFrom<ptr> {}
 );
 
-impl<'a> Context<'a> {
-    pub fn new(config: &'a Config<'a>) -> Result<Self> {
-        let mut context = Self::init();
-        unsafe { ssl_setup(context.handle_mut(), config.handle()) }.into_result()?;
-        Ok(context)
+impl Context {
+    pub fn new(config: &Arc<Config>) -> Result<Self> {
+        let mut inner = ssl_context::default();
+        let config = Arc::clone(&config);
+        unsafe {
+            ssl_init(&mut inner);
+            ssl_setup(&mut inner, (&*config).into()).into_result()?;
+        };
+
+        Ok(Self { inner, config })
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<c_int> {
